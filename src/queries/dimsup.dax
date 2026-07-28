@@ -1,0 +1,40 @@
+DEFINE
+    VAR _Rows =
+        CALCULATETABLE(
+            DISTINCT(
+                SELECTCOLUMNS(
+                    'dimnv',
+
+                    "supervisorId",
+                        'dimnv'[sup_id],
+
+                    "supervisorLabel",
+                        'dimnv'[sup_name],
+
+                    "ammId",
+                        'dimnv'[amm_id],
+
+                    "regionId",
+                        'dimnv'[Region ID]
+                )
+            )
+
+            __REGION_FILTER__
+            __AMM_FILTER__
+        )
+
+EVALUATE
+FILTER(
+    _Rows,
+
+    NOT ISBLANK([supervisorId])
+        && NOT ISBLANK([supervisorLabel])
+        && NOT ISBLANK([ammId])
+        && NOT ISBLANK([regionId])
+)
+
+ORDER BY
+    [regionId] ASC,
+    [ammId] ASC,
+    [supervisorLabel] ASC,
+    [supervisorId] ASC

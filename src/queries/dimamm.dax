@@ -1,0 +1,33 @@
+DEFINE
+    VAR _Rows =
+        CALCULATETABLE(
+            DISTINCT(
+                SELECTCOLUMNS(
+                    'dimnv',
+
+                    "ammId",
+                        'dimnv'[amm_id],
+
+                    "ammLabel",
+                        'dimnv'[amm_name],
+
+                    "regionId",
+                        'dimnv'[Region ID]
+                )
+            )
+
+            __REGION_FILTER__
+        )
+
+EVALUATE
+FILTER(
+    _Rows,
+
+    NOT ISBLANK([ammId])
+        && NOT ISBLANK([ammLabel])
+        && NOT ISBLANK([regionId])
+)
+
+ORDER BY
+    [ammLabel] ASC,
+    [ammId] ASC

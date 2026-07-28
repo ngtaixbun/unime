@@ -1,0 +1,40 @@
+DEFINE
+    VAR _Rows =
+        DISTINCT(
+            SELECTCOLUMNS(
+                'dimnv',
+
+                "employeeId",
+                    'dimnv'[Employee_Id],
+
+                "employeeLabel",
+                    'dimnv'[FullName],
+
+                "supervisorId",
+                    'dimnv'[sup_id],
+
+                "ammId",
+                    'dimnv'[amm_id],
+
+                "regionId",
+                    'dimnv'[Region ID]
+            )
+        )
+
+EVALUATE
+FILTER(
+    _Rows,
+
+    NOT ISBLANK([employeeId])
+        && NOT ISBLANK([employeeLabel])
+        && NOT ISBLANK([supervisorId])
+        && NOT ISBLANK([ammId])
+        && NOT ISBLANK([regionId])
+)
+
+ORDER BY
+    [regionId] ASC,
+    [ammId] ASC,
+    [supervisorId] ASC,
+    [employeeLabel] ASC,
+    [employeeId] ASC

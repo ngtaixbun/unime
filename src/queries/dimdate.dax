@@ -1,0 +1,76 @@
+DEFINE
+    VAR _LatestDate =
+        MAXX(
+            ALL('Date'),
+            'Date'[Date]
+        )
+
+    VAR _LatestCycleKey =
+        MAXX(
+            FILTER(
+                ALL('Date'),
+                'Date'[Date] = _LatestDate
+            ),
+            'Date'[Chu kỳ KPI Key]
+        )
+
+    VAR _ValidDateRows =
+        FILTER(
+            ALL('Date'),
+            NOT ISBLANK('Date'[Chu kỳ KPI Key])
+                && NOT ISBLANK('Date'[Chu kỳ KPI])
+        )
+
+    VAR _Cycles =
+        GROUPBY(
+            _ValidDateRows,
+            'Date'[Chu kỳ KPI Key],
+            'Date'[Chu kỳ KPI],
+
+            "cycleStartDate",
+                MINX(
+                    CURRENTGROUP(),
+                    'Date'[Date]
+                ),
+
+            "cycleEndDate",
+                MAXX(
+                    CURRENTGROUP(),
+                    'Date'[Date]
+                )
+        )
+
+EVALUATE
+SELECTCOLUMNS(
+    ADDCOLUMNS(
+        _Cycles,
+
+        "cycleSort",
+            'Date'[Chu kỳ KPI Key],
+
+        "isLatestCycle",
+            'Date'[Chu kỳ KPI Key]
+                = _LatestCycleKey
+    ),
+
+    "cycleKey",
+        'Date'[Chu kỳ KPI Key],
+
+    "cycleLabel",
+        'Date'[Chu kỳ KPI],
+
+    "cycleStartDate",
+        [cycleStartDate],
+
+    "cycleEndDate",
+        [cycleEndDate],
+
+    "cycleSort",
+        [cycleSort],
+
+    "isLatestCycle",
+        [isLatestCycle]
+)
+
+ORDER BY
+    [cycleSort] ASC

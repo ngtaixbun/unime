@@ -1,0 +1,90 @@
+DEFINE
+    VAR _SelectedCycleKey =
+        __SELECTED_CYCLE_KEY__
+
+    VAR _CycleDates =
+        CALCULATETABLE(
+            VALUES('Date'[Date]),
+
+            KEEPFILTERS(
+                TREATAS(
+                    { _SelectedCycleKey },
+                    'Date'[Chu kỳ KPI Key]
+                )
+            )
+        )
+
+    VAR _TrendRows =
+        CALCULATETABLE(
+            ADDCOLUMNS(
+                _CycleDates,
+
+                "successfulCallsMtd",
+                    CALCULATE([mtd_call] * 100),
+
+                "visitMtd",
+                    CALCULATE([mtd_visit] * 100),
+
+                "timeSpendMtd",
+                    CALCULATE([mtd_timespend] * 100),
+
+                "osaMtd",
+                    CALCULATE([mtd_osa] * 100),
+
+                "qcMtd",
+                    CALCULATE([mtd_qc] * 100),
+
+                "benchmark",
+                    90.0
+            ),
+
+            KEEPFILTERS(
+                TREATAS(
+                    { _SelectedCycleKey },
+                    'Date'[Chu kỳ KPI Key]
+                )
+            )
+            __REGION_FILTER__
+            __AMM_FILTER__
+            __SUPERVISOR_FILTER__
+        )
+
+    VAR _ValidTrendRows =
+        FILTER(
+            _TrendRows,
+
+            NOT ISBLANK([successfulCallsMtd])
+                || NOT ISBLANK([visitMtd])
+                || NOT ISBLANK([timeSpendMtd])
+                || NOT ISBLANK([osaMtd])
+                || NOT ISBLANK([qcMtd])
+        )
+
+EVALUATE
+SELECTCOLUMNS(
+    _ValidTrendRows,
+
+    "Date",
+        'Date'[Date],
+
+    "successfulCallsMtd",
+        [successfulCallsMtd],
+
+    "visitMtd",
+        [visitMtd],
+
+    "timeSpendMtd",
+        [timeSpendMtd],
+
+    "osaMtd",
+        [osaMtd],
+
+    "qcMtd",
+        [qcMtd],
+
+    "benchmark",
+        [benchmark]
+)
+
+ORDER BY
+    [Date] ASC

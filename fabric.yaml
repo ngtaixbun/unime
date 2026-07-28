@@ -1,0 +1,7 @@
+activeProfile: default
+profiles:
+  default:
+    semanticModels:
+      unimeModel:
+        workspaceId: "6c4f81ec-8034-43c4-b0b7-9e8cfa32c5cb"
+        itemId: "99602495-4eed-472b-95f0-52d67732be14"

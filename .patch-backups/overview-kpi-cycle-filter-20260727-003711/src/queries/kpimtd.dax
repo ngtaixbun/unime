@@ -1,0 +1,33 @@
+EVALUATE
+ROW(
+    "successfulCallsMtd",
+    [mtd_call] * 100,
+
+    "successfulCallsIssued",
+    [nvfail_call],
+
+    "visitMtd",
+    [mtd_visit] * 100,
+
+    "visitIssued",
+    [nvfail_visit],
+
+    "timeSpendMtd",
+    [mtd_timespend] * 100,
+
+    "timeSpendIssued",
+    [nvfail_timespend],
+
+    "osaMtd",
+    [mtd_osa] * 100,
+
+    "osaIssued",
+    [nvfail_osa],
+
+    "qcMtd",
+    [mtd_qc] * 100,
+
+    "qcIssued",
+    [nvfail_qc]
+    
+)

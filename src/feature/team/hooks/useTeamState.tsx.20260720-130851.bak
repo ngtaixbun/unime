@@ -1,0 +1,202 @@
+/* eslint-disable react-refresh/only-export-components -- feature provider and its tightly-coupled hooks share one public state contract */
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+
+import {
+  EMPTY_TEAM_FILTERS,
+  calculateTeamEmployeeTrend,
+  calculateTeamEntityStats,
+  calculateTeamRiskSummary,
+  countAppliedTeamFilters,
+  filterTeamRows,
+  getTeamFilterSummary,
+  normalizeTeamFilterDraft,
+  selectRowsByDate,
+  selectTeamFilterOptions,
+} from "../lib";
+import type {
+  TeamEmployeeDetailsState,
+  TeamEmployeeRow,
+  TeamEntityLevel,
+  TeamFilterState,
+  TeamMetricKey,
+} from "../types";
+import { teamQueries } from "../queries";
+
+const TEAM_DATA = teamQueries.getData();
+
+interface TeamStateValue {
+  data: typeof TEAM_DATA;
+  reportDate: string;
+  dateIndex: number;
+  filters: TeamFilterState;
+  draftFilters: TeamFilterState;
+  filterOptions: ReturnType<typeof selectTeamFilterOptions>;
+  appliedFilterCount: number;
+  filterSummary: string;
+  currentRows: TeamEmployeeRow[];
+  currentDateRows: TeamEmployeeRow[];
+  isFilterOpen: boolean;
+  employeeDetails: TeamEmployeeDetailsState;
+  goToPreviousDate: () => void;
+  goToNextDate: () => void;
+  openFilterSheet: () => void;
+  closeFilterSheet: () => void;
+  updateDraftFilter: (name: keyof TeamFilterState, value: string) => void;
+  applyFilters: () => void;
+  resetFilters: () => void;
+  openEmployeeDetails: (employeeCode: string, metric?: TeamMetricKey) => void;
+  closeEmployeeDetails: () => void;
+  setEmployeeMetric: (metric: TeamMetricKey) => void;
+  setEmployeeSelectedDate: (date: string) => void;
+}
+
+const TeamStateContext = createContext<TeamStateValue | null>(null);
+
+export function TeamProvider({ children }: { children: ReactNode }) {
+  const dates = TEAM_DATA.meta.dates;
+  const [dateIndex, setDateIndex] = useState(Math.max(0, dates.length - 1));
+  const [filters, setFilters] = useState<TeamFilterState>({ ...EMPTY_TEAM_FILTERS });
+  const [draftFilters, setDraftFilters] = useState<TeamFilterState>({ ...EMPTY_TEAM_FILTERS });
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [employeeDetails, setEmployeeDetails] = useState<TeamEmployeeDetailsState>({
+    empCode: null,
+    metric: "calls",
+    selectedDate: null,
+    isOpen: false,
+  });
+
+  const reportDate = dates[dateIndex] ?? dates.at(-1) ?? "";
+  const currentDateRows = useMemo(
+    () => selectRowsByDate(TEAM_DATA.rows, reportDate),
+    [reportDate],
+  );
+  const currentRows = useMemo(
+    () => filterTeamRows(currentDateRows, filters),
+    [currentDateRows, filters],
+  );
+  const filterOptions = useMemo(
+    () => selectTeamFilterOptions(currentDateRows, draftFilters),
+    [currentDateRows, draftFilters],
+  );
+
+  const goToPreviousDate = useCallback(() => {
+    setDateIndex((value) => Math.max(0, value - 1));
+    setEmployeeDetails((value) => ({ ...value, selectedDate: null }));
+  }, []);
+  const goToNextDate = useCallback(() => {
+    setDateIndex((value) => Math.min(dates.length - 1, value + 1));
+    setEmployeeDetails((value) => ({ ...value, selectedDate: null }));
+  }, [dates.length]);
+  const openFilterSheet = useCallback(() => {
+    setDraftFilters({ ...filters });
+    setIsFilterOpen(true);
+  }, [filters]);
+  const closeFilterSheet = useCallback(() => setIsFilterOpen(false), []);
+  const updateDraftFilter = useCallback((name: keyof TeamFilterState, value: string) => {
+    setDraftFilters((current) => {
+      if (name === "region") return { region: value, amm: "all", sup: "all" };
+      if (name === "amm") return { ...current, amm: value, sup: "all" };
+      return { ...current, sup: value };
+    });
+  }, []);
+  const applyFilters = useCallback(() => {
+    setFilters(normalizeTeamFilterDraft(draftFilters, filterOptions));
+    setIsFilterOpen(false);
+  }, [draftFilters, filterOptions]);
+  const resetFilters = useCallback(() => {
+    const empty = { ...EMPTY_TEAM_FILTERS };
+    setDraftFilters(empty);
+    setFilters(empty);
+    setIsFilterOpen(false);
+  }, []);
+  const openEmployeeDetails = useCallback((employeeCode: string, metric: TeamMetricKey = "calls") => {
+    setEmployeeDetails({ empCode: employeeCode, metric, selectedDate: reportDate, isOpen: true });
+  }, [reportDate]);
+  const closeEmployeeDetails = useCallback(() => {
+    setEmployeeDetails((value) => ({ ...value, empCode: null, isOpen: false }));
+  }, []);
+  const setEmployeeMetric = useCallback((metric: TeamMetricKey) => {
+    setEmployeeDetails((value) => ({ ...value, metric, selectedDate: reportDate }));
+  }, [reportDate]);
+  const setEmployeeSelectedDate = useCallback((date: string) => {
+    setEmployeeDetails((value) => ({ ...value, selectedDate: date }));
+  }, []);
+
+  const value = useMemo<TeamStateValue>(() => ({
+    data: TEAM_DATA,
+    reportDate,
+    dateIndex,
+    filters,
+    draftFilters,
+    filterOptions,
+    appliedFilterCount: countAppliedTeamFilters(filters),
+    filterSummary: getTeamFilterSummary(TEAM_DATA.rows, filters),
+    currentRows,
+    currentDateRows,
+    isFilterOpen,
+    employeeDetails,
+    goToPreviousDate,
+    goToNextDate,
+    openFilterSheet,
+    closeFilterSheet,
+    updateDraftFilter,
+    applyFilters,
+    resetFilters,
+    openEmployeeDetails,
+    closeEmployeeDetails,
+    setEmployeeMetric,
+    setEmployeeSelectedDate,
+  }), [
+    reportDate, dateIndex, filters, draftFilters, filterOptions, currentRows, currentDateRows,
+    isFilterOpen, employeeDetails, goToPreviousDate, goToNextDate, openFilterSheet,
+    closeFilterSheet, updateDraftFilter, applyFilters, resetFilters, openEmployeeDetails,
+    closeEmployeeDetails, setEmployeeMetric, setEmployeeSelectedDate,
+  ]);
+
+  return <TeamStateContext.Provider value={value}>{children}</TeamStateContext.Provider>;
+}
+
+export function useTeamState(): TeamStateValue {
+  const value = useContext(TeamStateContext);
+  if (!value) throw new Error("useTeamState must be used inside TeamProvider");
+  return value;
+}
+
+export function useTeamOverview(metric: TeamMetricKey, level: TeamEntityLevel) {
+  const team = useTeamState();
+  return useMemo(() => ({
+    rows: team.currentRows,
+    entities: calculateTeamEntityStats(team.currentRows, level, metric),
+    risk: calculateTeamRiskSummary(
+      team.currentRows,
+      team.data.rows,
+      team.data.meta.dates,
+      team.reportDate,
+      team.filters,
+    ),
+  }), [team.currentRows, team.data.rows, team.data.meta.dates, team.reportDate, team.filters, level, metric]);
+}
+
+export function useTeamDetails() {
+  const team = useTeamState();
+  return { rows: team.currentRows, ...team };
+}
+
+export function useTeamEmployeeDetails() {
+  const team = useTeamState();
+  return useMemo(() => {
+    const code = team.employeeDetails.empCode;
+    if (!code) return { row: null, trend: [] };
+    const selectedDate = team.employeeDetails.selectedDate ?? team.reportDate;
+    const fallback = [...team.data.rows].reverse().find((row) => row.empCode === code) ?? null;
+    const row = team.data.rows.find((item) => item.empCode === code && item.date === selectedDate) ?? fallback;
+    const trend = calculateTeamEmployeeTrend(
+      team.data.rows,
+      team.data.meta.dates,
+      code,
+      team.employeeDetails.metric,
+      team.reportDate,
+    );
+    return { row, trend };
+  }, [team.data.rows, team.data.meta.dates, team.employeeDetails, team.reportDate]);
+}
