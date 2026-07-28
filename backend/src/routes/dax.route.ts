@@ -8,6 +8,22 @@ import {
 import { z } from "zod";
 
 import {
+  buildDimAmmDax,
+} from "../dax/dim-amm.js";
+
+import {
+  buildDimDateDax,
+} from "../dax/dim-date.js";
+
+import {
+  buildDimRegionDax,
+} from "../dax/dim-region.js";
+
+import {
+  buildDimSupervisorDax,
+} from "../dax/dim-supervisor.js";
+
+import {
   buildOverviewKpiSummaryDax,
 } from "../dax/overview-kpi-summary.js";
 
@@ -70,6 +86,9 @@ const organizationParamsSchema =
         .default("all"),
   }).strict();
 
+const emptyParamsSchema =
+  z.object({}).strict();
+
 const daxQueryRequestSchema =
   z.discriminatedUnion(
     "queryId",
@@ -93,6 +112,58 @@ const daxQueryRequestSchema =
         params:
           organizationParamsSchema,
       }).strict(),
+
+      z.object({
+        queryId:
+          z.literal(
+            "dim-date",
+          ),
+
+        params:
+          emptyParamsSchema,
+      }).strict(),
+
+      z.object({
+        queryId:
+          z.literal(
+            "dim-region",
+          ),
+
+        params:
+          emptyParamsSchema,
+      }).strict(),
+
+      z.object({
+        queryId:
+          z.literal(
+            "dim-amm",
+          ),
+
+        params:
+          z.object({
+            region:
+              encodedDimensionValueSchema
+                .default("all"),
+          }).strict(),
+      }).strict(),
+
+      z.object({
+        queryId:
+          z.literal(
+            "dim-supervisor",
+          ),
+
+        params:
+          z.object({
+            region:
+              encodedDimensionValueSchema
+                .default("all"),
+
+            amm:
+              encodedDimensionValueSchema
+                .default("all"),
+          }).strict(),
+      }).strict(),
     ],
   );
 
@@ -104,37 +175,71 @@ type DaxQueryRequest =
 function buildRegisteredDaxQuery(
   request: DaxQueryRequest,
 ): string {
-  const filters = {
-    region:
-      request.params.region,
-
-    amm:
-      request.params.amm,
-
-    supervisor:
-      request.params
-        .supervisor,
-  };
-
   switch (request.queryId) {
     case "overview-kpi-summary":
       return buildOverviewKpiSummaryDax({
         cycleKey:
-          request.params
-            .cycleKey,
+          request.params.cycleKey,
 
-        filters,
+        filters: {
+          region:
+            request.params.region,
+
+          amm:
+            request.params.amm,
+
+          supervisor:
+            request.params
+              .supervisor,
+        },
       });
 
     case "overview-kpi-trend":
       return buildOverviewKpiTrendDax({
         cycleKey:
-          request.params
-            .cycleKey,
+          request.params.cycleKey,
 
-        filters,
+        filters: {
+          region:
+            request.params.region,
+
+          amm:
+            request.params.amm,
+
+          supervisor:
+            request.params
+              .supervisor,
+        },
+      });
+
+    case "dim-date":
+      return buildDimDateDax();
+
+    case "dim-region":
+      return buildDimRegionDax();
+
+    case "dim-amm":
+      return buildDimAmmDax({
+        region:
+          request.params.region,
+      });
+
+    case "dim-supervisor":
+      return buildDimSupervisorDax({
+        region:
+          request.params.region,
+
+        amm:
+          request.params.amm,
       });
   }
+
+  const exhaustiveRequest:
+    never = request;
+
+  throw new Error(
+    `Query ID không được hỗ trợ: ${String(exhaustiveRequest)}`,
+  );
 }
 
 daxRouter.post(
@@ -146,10 +251,9 @@ daxRouter.post(
   ) => {
     try {
       const parsed =
-        daxQueryRequestSchema
-          .parse(
-            request.body,
-          );
+        daxQueryRequestSchema.parse(
+          request.body,
+        );
 
       const dax =
         buildRegisteredDaxQuery(

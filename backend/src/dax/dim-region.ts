@@ -1,0 +1,31 @@
+const dimRegionDax = `
+DEFINE
+    VAR _Rows =
+        DISTINCT(
+            SELECTCOLUMNS(
+                'dimnv',
+
+                "regionId",
+                    'dimnv'[Region ID],
+
+                "regionLabel",
+                    'dimnv'[Region]
+            )
+        )
+
+EVALUATE
+FILTER(
+    _Rows,
+
+    NOT ISBLANK([regionId])
+        && NOT ISBLANK([regionLabel])
+)
+
+ORDER BY
+    [regionLabel] ASC,
+    [regionId] ASC
+`.trim();
+
+export function buildDimRegionDax(): string {
+  return dimRegionDax;
+}
