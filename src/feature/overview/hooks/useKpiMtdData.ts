@@ -119,6 +119,19 @@ export function useKpiMtdData(
     query:
       queryConfig?.query ??
       "",
+    backendRequest:
+      cycleKey === null
+        ? undefined
+        : {
+            queryId:
+              "overview-kpi-summary",
+            params: {
+              cycleKey,
+              region,
+              amm,
+              supervisor,
+            },
+          },
   });
 
   const values =

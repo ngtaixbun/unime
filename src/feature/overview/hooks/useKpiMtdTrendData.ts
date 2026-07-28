@@ -210,6 +210,19 @@ export function useKpiMtdTrendData(
     query:
       queryConfig?.query ??
       "",
+    backendRequest:
+      cycleKey === null
+        ? undefined
+        : {
+            queryId:
+              "overview-kpi-trend",
+            params: {
+              cycleKey,
+              region,
+              amm,
+              supervisor,
+            },
+          },
   });
 
   let rows: KpiMtdTrendRow[] = [];

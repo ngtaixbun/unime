@@ -112,6 +112,16 @@ describe("useKpiMtdData", () => {
         kpiMtd({
           cycleKey: 202608,
         }).query,
+      backendRequest: {
+        queryId:
+          "overview-kpi-summary",
+        params: {
+          cycleKey: 202608,
+          region: "all",
+          amm: "all",
+          supervisor: "all",
+        },
+      },
     });
   });
 

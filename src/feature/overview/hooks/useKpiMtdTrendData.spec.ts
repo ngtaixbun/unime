@@ -123,6 +123,16 @@ describe(
           kpiMtdTrend({
             cycleKey: 202608,
           }).query,
+        backendRequest: {
+          queryId:
+            "overview-kpi-trend",
+          params: {
+            cycleKey: 202608,
+            region: "all",
+            amm: "all",
+            supervisor: "all",
+          },
+        },
       });
     });
 
