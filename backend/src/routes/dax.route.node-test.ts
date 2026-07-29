@@ -6,6 +6,10 @@ import {
 } from "../dax/dim-kpi.js";
 
 import {
+  buildOverviewKpiSummaryDax,
+} from "../dax/overview-kpi-summary.js";
+
+import {
   buildRegisteredDaxQuery,
   daxQueryRequestSchema,
 } from "./dax.route.js";
@@ -68,5 +72,69 @@ test("dim-kpi queryId dispatches to the registered DAX builder", () => {
       request,
     ),
     buildDimKpiDax(),
+  );
+});
+
+test("overview-kpi-summary accepts selected kpiId and dispatches the sixteen-column query", () => {
+  const request =
+    daxQueryRequestSchema.parse({
+      queryId:
+        "overview-kpi-summary",
+
+      params: {
+        cycleKey:
+          202608,
+        kpiId:
+          5,
+        region:
+          "number:1",
+        amm:
+          "all",
+        supervisor:
+          "all",
+      },
+    });
+
+  const dax =
+    buildRegisteredDaxQuery(
+      request,
+    );
+
+  assert.equal(
+    dax,
+    buildOverviewKpiSummaryDax({
+      cycleKey:
+        202608,
+      kpiId:
+        5,
+      filters: {
+        region:
+          "number:1",
+        amm:
+          "all",
+        supervisor:
+          "all",
+      },
+    }),
+  );
+
+  assert.match(
+    dax,
+    /"mtdKpiSelected"/,
+  );
+
+  assert.match(
+    dax,
+    /"contributionNv"/,
+  );
+
+  assert.match(
+    dax,
+    /VAR\s+_SelectedKpiId\s*=\s*5/,
+  );
+
+  assert.match(
+    dax,
+    /TREATAS\(\s*\{\s*_SelectedKpiId\s*\}/,
   );
 });

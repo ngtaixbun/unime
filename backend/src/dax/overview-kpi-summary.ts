@@ -8,14 +8,23 @@ export type CycleKey =
   | string;
 
 export interface OverviewKpiSummaryParams {
-  cycleKey: CycleKey;
-  filters?: OrgQueryFilters;
+  cycleKey:
+    CycleKey;
+
+  kpiId?:
+    number;
+
+  filters?:
+    OrgQueryFilters;
 }
 
 const kpiMtdTemplate = `
 DEFINE
     VAR _SelectedCycleKey =
         __SELECTED_CYCLE_KEY__
+
+    VAR _SelectedKpiId =
+        __SELECTED_KPI_ID__
 
 EVALUATE
 CALCULATETABLE(
@@ -48,13 +57,38 @@ CALCULATETABLE(
             [mtd_qc] * 100,
 
         "qcIssued",
-            [nvfail_qc]
+            [nvfail_qc],
+
+        "mtdKpiSelected",
+            [MTD KPI Selected],
+
+        "gap",
+            [gap],
+
+        "nvFail",
+            [nvfail],
+
+        "contributionNvFail",
+            [contribution_nvfail],
+
+        "countNv",
+            [count_nv],
+
+        "contributionNv",
+            [contribution_nv]
     ),
 
     KEEPFILTERS(
         TREATAS(
             { _SelectedCycleKey },
             'Date'[Chu kỳ KPI Key]
+        )
+    ),
+
+    KEEPFILTERS(
+        TREATAS(
+            { _SelectedKpiId },
+            'KPIname'[num]
         )
     )
     __REGION_FILTER__
@@ -64,20 +98,26 @@ CALCULATETABLE(
 `.trim();
 
 function cycleKeyToDaxScalar(
-  value: CycleKey,
+  value:
+    CycleKey,
 ): string {
   if (
-    typeof value === "number"
+    typeof value ===
+    "number"
   ) {
     if (
-      !Number.isFinite(value)
+      !Number.isFinite(
+        value,
+      )
     ) {
       throw new Error(
         "cycleKey KPI MTD không hợp lệ.",
       );
     }
 
-    return String(value);
+    return String(
+      value,
+    );
   }
 
   const normalized =
@@ -97,28 +137,37 @@ function cycleKeyToDaxScalar(
   )}"`;
 }
 
+function kpiIdToDaxScalar(
+  value: number,
+): string {
+  if (
+    !Number.isSafeInteger(
+      value,
+    ) ||
+    value <= 0
+  ) {
+    throw new Error(
+      "kpiId KPI MTD không hợp lệ.",
+    );
+  }
+
+  return String(
+    value,
+  );
+}
+
 export function buildOverviewKpiSummaryDax({
   cycleKey,
+  kpiId = 1,
   filters = {},
 }: OverviewKpiSummaryParams): string {
-  for (
-    const placeholder of [
-      "__SELECTED_CYCLE_KEY__",
-      "__REGION_FILTER__",
-      "__AMM_FILTER__",
-      "__SUPERVISOR_FILTER__",
-    ]
-  ) {
-    if (
-      !kpiMtdTemplate.includes(
-        placeholder,
-      )
-    ) {
-      throw new Error(
-        `Template KPI MTD thiếu ${placeholder}.`,
-      );
-    }
-  }
+  const placeholders = [
+    "__SELECTED_CYCLE_KEY__",
+    "__SELECTED_KPI_ID__",
+    "__REGION_FILTER__",
+    "__AMM_FILTER__",
+    "__SUPERVISOR_FILTER__",
+  ] as const;
 
   const query =
     kpiMtdTemplate
@@ -126,6 +175,12 @@ export function buildOverviewKpiSummaryDax({
         "__SELECTED_CYCLE_KEY__",
         cycleKeyToDaxScalar(
           cycleKey,
+        ),
+      )
+      .replace(
+        "__SELECTED_KPI_ID__",
+        kpiIdToDaxScalar(
+          kpiId,
         ),
       )
       .replace(
@@ -150,24 +205,17 @@ export function buildOverviewKpiSummaryDax({
         ),
       );
 
-  const unresolvedPlaceholders = [
-    "__SELECTED_CYCLE_KEY__",
-    "__REGION_FILTER__",
-    "__AMM_FILTER__",
-    "__SUPERVISOR_FILTER__",
-  ].filter(
-    (placeholder) =>
-      query.includes(
-        placeholder,
-      ),
-  );
+  const unresolved =
+    placeholders.find(
+      (placeholder) =>
+        query.includes(
+          placeholder,
+        ),
+    );
 
-  if (
-    unresolvedPlaceholders.length >
-    0
-  ) {
+  if (unresolved) {
     throw new Error(
-      "Không thể áp dụng filter vào KPI MTD.",
+      `Không thể áp dụng ${unresolved} vào KPI MTD.`,
     );
   }
 

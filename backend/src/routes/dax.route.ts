@@ -90,6 +90,17 @@ const organizationParamsSchema =
         .default("all"),
   }).strict();
 
+const overviewKpiSummaryParamsSchema =
+  organizationParamsSchema
+    .extend({
+      kpiId:
+        z.number()
+          .int()
+          .positive()
+          .default(1),
+    })
+    .strict();
+
 const emptyParamsSchema =
   z.object({}).strict();
 
@@ -104,7 +115,7 @@ const daxQueryRequestSchema =
           ),
 
         params:
-          organizationParamsSchema,
+          overviewKpiSummaryParamsSchema,
       }).strict(),
 
       z.object({
@@ -194,6 +205,9 @@ function buildRegisteredDaxQuery(
       return buildOverviewKpiSummaryDax({
         cycleKey:
           request.params.cycleKey,
+
+        kpiId:
+          request.params.kpiId,
 
         filters: {
           region:
