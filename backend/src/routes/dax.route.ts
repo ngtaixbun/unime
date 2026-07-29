@@ -16,6 +16,10 @@ import {
 } from "../dax/dim-date.js";
 
 import {
+  buildDimKpiDax,
+} from "../dax/dim-kpi.js";
+
+import {
   buildDimRegionDax,
 } from "../dax/dim-region.js";
 
@@ -126,6 +130,16 @@ const daxQueryRequestSchema =
       z.object({
         queryId:
           z.literal(
+            "dim-kpi",
+          ),
+
+        params:
+          emptyParamsSchema,
+      }).strict(),
+
+      z.object({
+        queryId:
+          z.literal(
             "dim-region",
           ),
 
@@ -215,6 +229,9 @@ function buildRegisteredDaxQuery(
     case "dim-date":
       return buildDimDateDax();
 
+    case "dim-kpi":
+      return buildDimKpiDax();
+
     case "dim-region":
       return buildDimRegionDax();
 
@@ -285,5 +302,7 @@ daxRouter.post(
 );
 
 export {
+  buildRegisteredDaxQuery,
   daxRouter,
+  daxQueryRequestSchema,
 };
