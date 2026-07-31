@@ -103,6 +103,16 @@ for (
   );
 }
 
+assert.match(
+  numericSupervisorQuery,
+  /"actual"\s*,\s*\[Actual KPI Selected\]/,
+);
+
+assert.match(
+  numericSupervisorQuery,
+  /"target"\s*,\s*\[Target KPI Selected\]/,
+);
+
 console.log(
   "[OK] Overview KPI summary query self-check passed.",
 );

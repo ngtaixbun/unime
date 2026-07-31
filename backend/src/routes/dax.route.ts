@@ -36,6 +36,10 @@ import {
 } from "../dax/overview-kpi-trend.js";
 
 import {
+  buildTeamEmployeeKpiDax,
+} from "../dax/team-employee-kpi.js";
+
+import {
   isEncodedDimensionValue,
   type EncodedDimensionValue,
 } from "../dax/org-filter.js";
@@ -101,6 +105,16 @@ const overviewKpiSummaryParamsSchema =
     })
     .strict();
 
+const teamEmployeeKpiParamsSchema =
+  organizationParamsSchema
+    .extend({
+      kpiId:
+        z.number()
+          .int()
+          .positive(),
+    })
+    .strict();
+
 const emptyParamsSchema =
   z.object({}).strict();
 
@@ -126,6 +140,16 @@ const daxQueryRequestSchema =
 
         params:
           organizationParamsSchema,
+      }).strict(),
+
+      z.object({
+        queryId:
+          z.literal(
+            "team-employee-kpi",
+          ),
+
+        params:
+          teamEmployeeKpiParamsSchema,
       }).strict(),
 
       z.object({
@@ -226,6 +250,27 @@ function buildRegisteredDaxQuery(
       return buildOverviewKpiTrendDax({
         cycleKey:
           request.params.cycleKey,
+
+        filters: {
+          region:
+            request.params.region,
+
+          amm:
+            request.params.amm,
+
+          supervisor:
+            request.params
+              .supervisor,
+        },
+      });
+
+    case "team-employee-kpi":
+      return buildTeamEmployeeKpiDax({
+        cycleKey:
+          request.params.cycleKey,
+
+        kpiId:
+          request.params.kpiId,
 
         filters: {
           region:

@@ -75,7 +75,13 @@ CALCULATETABLE(
             [count_nv],
 
         "contributionNv",
-            [contribution_nv]
+            [contribution_nv],
+
+        "actual",
+            [Actual KPI Selected],
+
+        "target",
+            [Target KPI Selected]
     ),
 
     KEEPFILTERS(
