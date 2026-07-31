@@ -7,6 +7,10 @@ interface ImportMetaEnv {
 
   readonly VITE_API_BASE_URL?:
     string;
+
+  readonly VITE_BACKEND_QUERY_MODE?:
+    | "registered"
+    | "generic";
 }
 
 interface ImportMeta {

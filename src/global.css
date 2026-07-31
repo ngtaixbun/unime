@@ -171,6 +171,28 @@
   --icon-size-500: 28px;
   --icon-size-600: 32px;
   --icon-size-700: 48px;
+
+  /* Shared dashboard controls */
+  --size-dashboard-header: 116px;
+  --size-dashboard-header-compact: 108px;
+  --size-dashboard-control: 40px;
+  --size-dashboard-control-compact: 38px;
+  --size-dashboard-logo-panel: 112px;
+  --size-dashboard-logo-panel-compact: 96px;
+  --size-dashboard-logo: 68px;
+  --size-dashboard-logo-compact: 60px;
+  --size-dashboard-date-navigator: 300px;
+  --size-report-period: 44px;
+  --size-report-period-compact: 42px;
+  --size-report-period-item: 36px;
+  --size-report-period-item-compact: 34px;
+  --icon-size-report-period: 16px;
+
+  --color-dashboard-header: #eef4ff;
+  --color-dashboard-header-control: rgba(255, 255, 255, 0.86);
+  --color-dashboard-header-control-border: rgba(255, 255, 255, 0.72);
+  --color-dashboard-header-foreground: #173e9a;
+  --color-dashboard-date-prefix: #75839b;
 }
 
 @utility icon-size-* {
@@ -278,6 +300,19 @@ textarea {
   font-family: var(--font-base);
 }
 
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
 body {
   margin: 0;
   overflow: hidden;
@@ -311,22 +346,6 @@ body {
 
 .app-shell__scroll::-webkit-scrollbar {
   display: none;
-}
-
-.dashboardUnifiedHeader .nwHeaderTitle{
-  font-size:            var(--text-500);
-}
-
-.dashboardUnifiedHeader .nwHeaderCycle{
-  font-size:            var(--text-100);
-}
-
-.dashboardUnifiedHeader .mtdLabel{
-  font-size:            var(--text-100);
-}
-
-.dashboardUnifiedHeader .mtdValue{
-  font-size:            var(--text-200);
 }
 
 .app-bottom-nav {

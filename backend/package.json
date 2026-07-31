@@ -6,6 +6,7 @@
   "description": "Backend API for the Unime Power BI Semantic Model",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "test": "tsc -p tsconfig.test.json --noEmit && tsx --test src/config/cors.node-test.ts src/routes/dax.route.node-test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js"

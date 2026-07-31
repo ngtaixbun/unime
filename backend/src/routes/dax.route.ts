@@ -7,6 +7,8 @@ import {
 
 import { z } from "zod";
 
+import { env } from "../config/env.js";
+
 import {
   buildDimAmmDax,
 } from "../dax/dim-amm.js";
@@ -29,6 +31,7 @@ import {
 
 import {
   buildOverviewKpiSummaryDax,
+  overviewKpiSummaryColumns,
 } from "../dax/overview-kpi-summary.js";
 
 import {
@@ -45,7 +48,9 @@ import {
 } from "../dax/org-filter.js";
 
 import {
+  assertPowerBiQueryResultColumns,
   executePowerBiDax,
+  executePowerBiDaxTabular,
 } from "../services/powerbi-query.js";
 
 const daxRouter = Router();
@@ -117,6 +122,81 @@ const teamEmployeeKpiParamsSchema =
 
 const emptyParamsSchema =
   z.object({}).strict();
+
+const expectedColumnSchema =
+  z.string()
+    .max(
+      512,
+      "Tên cột vượt quá 512 ký tự.",
+    )
+    .refine(
+      (value) =>
+        value.trim() !== "",
+      {
+        message:
+          "Tên cột không được để trống.",
+      },
+    );
+
+const genericDaxExecuteRequestSchema =
+  z.object({
+    query:
+      z.string()
+        .refine(
+          (value) =>
+            value.trim() !== "",
+          {
+            message:
+              "DAX query không được để trống.",
+          },
+        ),
+
+    expectedColumns:
+      z.array(
+        expectedColumnSchema,
+      )
+        .min(
+          1,
+          "expectedColumns phải có ít nhất một cột.",
+        )
+        .max(
+          env.DAX_MAX_EXPECTED_COLUMNS,
+          `expectedColumns vượt quá giới hạn ${env.DAX_MAX_EXPECTED_COLUMNS} cột.`,
+        )
+        .refine(
+          (columns) =>
+            new Set(columns).size ===
+            columns.length,
+          {
+            message:
+              "expectedColumns không được có tên cột trùng nhau.",
+          },
+        ),
+  })
+    .strict()
+    .superRefine(
+      (value, context) => {
+        const queryBytes =
+          Buffer.byteLength(
+            value.query,
+            "utf8",
+          );
+
+        if (
+          queryBytes >
+          env.DAX_MAX_LENGTH_BYTES
+        ) {
+          context.addIssue({
+            code: "custom",
+            path: [
+              "query",
+            ],
+            message:
+              `DAX query vượt quá giới hạn ${env.DAX_MAX_LENGTH_BYTES} bytes.`,
+          });
+        }
+      },
+    );
 
 const daxQueryRequestSchema =
   z.discriminatedUnion(
@@ -319,6 +399,60 @@ function buildRegisteredDaxQuery(
 }
 
 daxRouter.post(
+  "/execute",
+  async (
+    request: Request,
+    response: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      if (
+        !env.enableGenericDax
+      ) {
+        response.status(404).json({
+          success: false,
+
+          error: {
+            code:
+              "GENERIC_DAX_DISABLED",
+
+            message:
+              "Generic DAX endpoint chưa được bật.",
+          },
+        });
+
+        return;
+      }
+
+      const parsed =
+        genericDaxExecuteRequestSchema
+          .parse(
+            request.body,
+          );
+
+      const result =
+        await executePowerBiDaxTabular(
+          parsed.query,
+          parsed.expectedColumns,
+        );
+
+      response.json({
+        success: true,
+
+        data: result,
+
+        meta: {
+          rowCount:
+            result.rows.length,
+        },
+      });
+    } catch (error: unknown) {
+      next(error);
+    }
+  },
+);
+
+daxRouter.post(
   "/query",
   async (
     request: Request,
@@ -340,6 +474,16 @@ daxRouter.post(
         await executePowerBiDax(
           dax,
         );
+
+      if (
+        parsed.queryId ===
+          "overview-kpi-summary"
+      ) {
+        assertPowerBiQueryResultColumns(
+          result,
+          overviewKpiSummaryColumns,
+        );
+      }
 
       response.json({
         success: true,
@@ -364,4 +508,5 @@ export {
   buildRegisteredDaxQuery,
   daxRouter,
   daxQueryRequestSchema,
+  genericDaxExecuteRequestSchema,
 };

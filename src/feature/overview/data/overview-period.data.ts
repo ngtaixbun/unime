@@ -1,6 +1,7 @@
-import type { OverviewData, OverviewPeriod } from "../types";
+import type { ReportPeriod } from "@/lib/report-period";
+import type { OverviewData } from "../types";
 
-export const OVERVIEW_MOCK_DATA_BY_PERIOD: Record<OverviewPeriod, OverviewData> = {
+export const OVERVIEW_MOCK_DATA_BY_PERIOD: Record<ReportPeriod, OverviewData> = {
   today: {
     coverage: [
       {
@@ -120,7 +121,7 @@ export const OVERVIEW_MOCK_DATA_BY_PERIOD: Record<OverviewPeriod, OverviewData> 
       },
     ],
   },
-  "seven-days": {
+  "7days": {
     coverage: [
       {
         id: "store",

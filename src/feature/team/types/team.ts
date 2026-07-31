@@ -1,3 +1,8 @@
+import type {
+  ReportDateRange,
+  ReportPeriod,
+} from "@/lib/report-period";
+
 export type TeamMetricKey = "calls" | "beat" | "time" | "osa" | "qc";
 
 export type TeamMetricPercentageField =
@@ -41,19 +46,19 @@ export interface TeamEmployeeRow {
   npp: string;
   callsActual: number;
   callsTarget: number;
-  callsPct: number;
+  callsPct: number | null;
   beatActual: number;
   beatTarget: number;
-  beatPct: number;
+  beatPct: number | null;
   timeActual: number;
   timeTarget: number;
-  timePct: number;
+  timePct: number | null;
   osaActual: number;
   osaTarget: number;
-  osaPct: number;
+  osaPct: number | null;
   qcActual: number;
   qcTarget: number;
-  qcPct: number;
+  qcPct: number | null;
 }
 
 export interface TeamMetricDefinition {
@@ -70,8 +75,6 @@ export interface TeamFilterState {
   sup: TeamFilterValue;
 }
 
-export type TeamFilterDraft = TeamFilterState;
-
 export interface TeamDataMeta {
   dates: readonly string[];
   cycle: string;
@@ -86,7 +89,10 @@ export interface TeamDataSet {
 export type TeamData = TeamDataSet;
 
 export interface TeamReportContext {
+  period: ReportPeriod;
   reportDate: string;
+  dateRange: ReportDateRange;
+  reportDates: readonly string[];
   dateIndex: number;
   dates: readonly string[];
   cycle: string;
@@ -114,7 +120,7 @@ export interface TeamMetricResult {
 }
 
 export interface TeamMetricValues {
-  value: number;
+  value: number | null;
   actual: number;
   target: number;
 }
@@ -174,15 +180,4 @@ export interface TeamRiskSummary {
   maxStreak: TeamMaxStreakResult | null;
   topSup: TeamSupStat[];
   topNpp: TeamNppStat[];
-}
-
-export interface TeamFilterOption {
-  value: string;
-  label: string;
-}
-
-export interface TeamFilterOptions {
-  regions: TeamFilterOption[];
-  amms: TeamFilterOption[];
-  sups: TeamFilterOption[];
 }

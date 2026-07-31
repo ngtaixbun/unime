@@ -215,7 +215,7 @@ must not be synthesized from the current one-row result.
 - `src/feature/overview/hooks/useOsaMtdData.spec.ts`
 - `src/feature/overview/hooks/useOverviewData.spec.ts`
 - `src/feature/overview/components/KpiRow.spec.tsx`
-- `src/feature/overview/components/DateNavigator.spec.tsx`
+- `src/components/dashboard-header/DateNavigator.spec.tsx`
 - `src/feature/overview/pages/OverviewPage.spec.tsx`
 - `src/feature/overview/lib/formatters.spec.ts`
 - `docs/overview-kpi-semantic-model-source-of-truth.md`
@@ -236,14 +236,11 @@ Final pass/fail results and test counts belong in the completion report
 after the current validation run; this document does not preserve counts
 from an older source snapshot.
 
-The current Overview filters and `selectedCycleKey` are not yet applied to
-`kpimtd.dax`. Changing the Date Navigator therefore changes only the
-selected/displayed cycle, not the KPI result.
-
-The next phase is to pass `selectedCycleKey` into the single-row KPI MTD
-query as Semantic Model filter context, validate the resulting exact SDK
-schema, and keep one shared `useKpiMtdData` result for Team KPIs and Market
-OSA. It must not reintroduce frontend cycle/date calculations.
+`selectedCycleKey` and the shared encoded Region, AMM and Supervisor filters
+are applied to `kpimtd.dax` and its backend request. Changing the Date
+Navigator or applying an organization filter therefore rebuilds the semantic
+query context. The shared filter ownership and cascade are documented in
+`docs/organization-filter-source-of-truth.md`.
 
 <!-- OVERVIEW_KPI_CYCLE_FILTER_START -->
 
@@ -303,4 +300,3 @@ valid summary percentages and Issued counts. In those cases, Sparkline is
 empty and no mock trend is shown.
 
 <!-- OVERVIEW_TEAM_KPI_TREND_END -->
-

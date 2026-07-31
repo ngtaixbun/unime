@@ -80,7 +80,9 @@ app.use(
 
 app.use(
   express.json({
-    limit: "32kb",
+    limit:
+      env.DAX_MAX_LENGTH_BYTES +
+      65_536,
   }),
 );
 
@@ -92,6 +94,22 @@ app.use(
     standardHeaders: true,
     legacyHeaders: false,
   }),
+);
+
+app.use(
+  "/api/dax",
+  (
+    _request: Request,
+    response: Response,
+    next: NextFunction,
+  ) => {
+    response.setHeader(
+      "Cache-Control",
+      "no-store, private",
+    );
+
+    next();
+  },
 );
 
 app.get(
@@ -181,6 +199,7 @@ app.use(
     response: Response,
     _next: NextFunction,
   ) => {
+    void _next;
     if (
       error instanceof
       ZodError
@@ -193,7 +212,7 @@ app.use(
             "INVALID_REQUEST",
 
           message:
-            "Query ID hoặc filter không hợp lệ.",
+            "Nội dung request không hợp lệ.",
 
           details:
             error.flatten(),
@@ -229,7 +248,8 @@ app.use(
       console.error({
         code: error.code,
         message: error.message,
-        cause: error.cause,
+        statusCode:
+          error.statusCode,
       });
 
       response

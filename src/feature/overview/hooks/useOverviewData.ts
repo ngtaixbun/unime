@@ -6,6 +6,7 @@ import {
 import type {
   DimDateCycleValue,
 } from "@/queries/dim-date";
+import type { ReportPeriod } from "@/lib/report-period";
 import type {
   KpiMtdTrendRow,
 } from "@/queries/kpimtd-trend";
@@ -18,7 +19,6 @@ import type {
   OverviewFilters,
   OverviewKpi,
   OverviewKpiStatus,
-  OverviewPeriod,
   TrendPoint,
 } from "../types";
 import {
@@ -30,7 +30,7 @@ import {
 } from "./useKpiMtdTrendData";
 
 interface UseOverviewDataParams {
-  period: OverviewPeriod;
+  period: ReportPeriod;
   cycleKey: DimDateCycleValue | null;
   filters?: OverviewFilters;
 }
@@ -362,4 +362,3 @@ export function useOverviewData({
     reload,
   };
 }
-

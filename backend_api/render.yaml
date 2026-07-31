@@ -1,0 +1,45 @@
+# ──────────────────────────────────────────────────────────────────────
+# Render — Blueprint / Infrastructure as Code
+# ──────────────────────────────────────────────────────────────────────
+# Cách deploy:
+#   1. Push repo lên GitHub
+#   2. Vào https://dashboard.render.com → New → Blueprint
+#   3. Chọn repo, file này tự detect
+#   4. Set environment variables trên dashboard (xem env vars bên dưới)
+#   5. Render build + deploy tự động
+#
+# Cách khác (Web Service手动):
+#   1. Dashboard → New → Web Service → Connect repo
+#   2. Runtime: Docker
+#   3. Dockerfile: backend_api/Dockerfile
+#   4. Port: 3000
+#   5. Start command: node dist/server.js
+# ──────────────────────────────────────────────────────────────────────
+
+services:
+  - type: web
+    name: rayfin-backend-api
+    runtime: docker
+    dockerfilePath: backend_api/Dockerfile
+    dockerContext: backend_api
+    port: 3000
+    plan: free  # Free tier: sleep sau15 phút idle
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      # ← Set các key sau trên Render Dashboard:
+      # TENANT_ID, CLIENT_ID, CLIENT_SECRET, WORKSPACE_ID, SEMANTIC_MODEL_ID
+      - key: TENANT_ID
+        sync: false  # manual input required
+      - key: CLIENT_ID
+        sync: false
+      - key: CLIENT_SECRET
+        sync: false
+      - key: WORKSPACE_ID
+        sync: false
+      - key: SEMANTIC_MODEL_ID
+        sync: false
+    healthCheckPath: /
+    autoDeploy: true  # auto deploy khi push lên main branch

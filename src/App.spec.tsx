@@ -5,17 +5,21 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
-import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { beforeEach, describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
 import App from "@/App";
 
 describe("App", () => {
+    beforeEach(() => {
+        window.history.replaceState({}, "", "/team?period=today&date=2026-06-10");
+    });
+
     it("renders without throwing", () => {
         expect(() => render(<App />)).not.toThrow();
     });
 
     it("mounts content into the document", () => {
         render(<App />);
-        expect(document.body).not.toBeEmptyDOMElement();
+        expect(screen.getByRole("heading", { name: "Đội ngũ" })).toBeVisible();
     });
 });

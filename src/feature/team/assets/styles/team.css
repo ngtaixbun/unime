@@ -11,7 +11,6 @@
   box-sizing: border-box;
 }
 
-.team-page button,
 .team-details button {
   cursor: pointer;
 }
@@ -28,6 +27,7 @@
 }
 
 .team-card {
+  min-width: 0;
   padding: var(--spacing-m);
   border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-3xl);
@@ -43,14 +43,18 @@
 .team-kpi-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: var(--spacing-xs); border: 1px solid var(--color-border-soft); border-radius: var(--radius-2xl); background: var(--color-surface-subtle); margin-bottom: var(--spacing-m); }
 .team-kpi-tabs button { min-width: 0; min-height: 42px; padding: var(--spacing-xs) var(--spacing-xxs); border: 0; border-radius: var(--radius-xl); background: transparent; color: var(--color-text-muted); font-size: var(--text-100); line-height: var(--leading-100); font-weight: var(--font-weight-semibold); }
 .team-kpi-tabs button.is-active { background: var(--color-brand-navy); color: var(--color-primary-foreground); }
+.team-kpi-state { display: flex; align-items: center; justify-content: center; gap: var(--spacing-s); margin-bottom: var(--spacing-m); padding: var(--spacing-m); border: 1px solid var(--color-border-soft); border-radius: var(--radius-2xl); background: var(--color-surface-subtle); color: var(--color-text-muted); font-size: var(--text-200); text-align: center; }
+.team-kpi-state.is-error { color: var(--color-danger); }
+.team-kpi-state button { padding: var(--spacing-s) var(--spacing-m); border: 1px solid currentColor; border-radius: var(--radius-xl); background: var(--color-surface); color: inherit; font: inherit; font-weight: var(--font-weight-semibold); cursor: pointer; }
 
-.team-chart-card { padding: 14px 12px 12px; border: 1px solid var(--color-border-soft); border-radius: var(--radius-2xl); overflow: hidden; }
+.team-chart-card { min-width: 0; padding: 14px 12px 12px; border: 1px solid var(--color-border-soft); border-radius: var(--radius-2xl); overflow: hidden; }
 .team-chart-head { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-s); margin-bottom: var(--spacing-m-nudge); }
 .team-chart-head b { color: var(--color-text-primary); font-size: var(--text-300); font-weight: var(--font-weight-semibold); }
 .team-chart-head span { min-height: 32px; padding: 0 var(--spacing-m-nudge); border: 1px dashed var(--color-issued); border-radius: var(--radius-full); color: var(--color-issued); display: inline-flex; align-items: center; font-size: var(--text-100); font-weight: var(--font-weight-semibold); white-space: nowrap; }
-.team-bar-scroll { width: 100%; max-width: 100%; overflow-x: hidden; scrollbar-width: none; }
+.team-bar-scroll { min-width: 0; width: 100%; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .team-bar-scroll::-webkit-scrollbar { display: none; }
 .team-bar-plot { position: relative; width: 100%; min-width: 0; max-width: 100%; height: 216px; display: flex; align-items: stretch; gap: var(--team-column-gap); padding: 0 8px; overflow: visible; --team-column-gap: 16px; --team-track-width: 32px; --team-track-half: 16px; --team-track-height: 104px; --team-value-row: 72px; }
+.team-bar-plot.is-amm { min-width: max(100%, calc(var(--team-entity-count) * 76px)); max-width: none; }
 .team-target-line { position: absolute; z-index: 1; left: var(--spacing-s-nudge); right: var(--spacing-s-nudge); top: calc(50px + (1 - var(--team-target-ratio)) * 126px); border-top: 1px dashed var(--color-issued); pointer-events: none; display: none; }
 .team-bar-item { position: relative; z-index: 2; flex: 1 1 0; min-width: 0; max-width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: inherit; display: grid; grid-template-rows: var(--team-value-row) var(--team-track-height) 40px; justify-items: center; transition: opacity .16s ease; overflow: visible; }
 .team-bar-item.is-dimmed { opacity: .35; }
@@ -61,7 +65,7 @@
 .team-bar-value.is-good { color: var(--color-success); }
 .team-bar-track { width: var(--team-track-width); height: var(--team-track-height); border-radius: 12px 12px 5px 5px; background: #f0f1f3; display: flex; align-items: flex-end; overflow: hidden; box-shadow: none; }
 .team-bar-fill { width: 100%; height: calc(var(--team-bar-ratio) * 100%); min-height: var(--spacing-s-nudge); border: 0; border-radius: 10px 10px 4px 4px; background: var(--team-bar-color); outline: 0; box-shadow: none; }
-.team-bar-name { align-self: start; max-width: 76px; padding-top: 9px; overflow: hidden; color: var(--color-text-secondary); font-size: var(--text-200); line-height: 1.2; font-weight: var(--font-weight-semibold); text-align: center; text-overflow: ellipsis; }
+.team-bar-name { align-self: start; width: 100%; max-width: 76px; padding-top: 9px; overflow: hidden; color: var(--color-text-secondary); font-size: var(--text-200); line-height: 1.2; font-weight: var(--font-weight-semibold); text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 
 .team-level-tabs { display: grid; grid-template-columns: 1fr 1fr; margin-top: var(--spacing-m); border-bottom: 1px solid var(--color-border-soft); }
 .team-level-tabs button { height: 42px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--color-text-primary); font-size: var(--text-200); font-weight: var(--font-weight-semibold); }
@@ -147,14 +151,6 @@
 .team-sheet-head h2 { margin: 0; color: var(--color-text-primary); font-size: var(--text-400); }
 .team-sheet-head button { width: 40px; height: 40px; padding: 0; border: 0; border-radius: var(--radius-full); background: var(--color-brand-soft); color: var(--color-brand-navy); display: grid; place-items: center; }
 .team-sheet-head svg { width: var(--icon-size-300); height: var(--icon-size-300); }
-.team-filter-grid { display: grid; gap: var(--spacing-m-nudge); }
-.team-filter-grid label { display: grid; gap: var(--spacing-s-nudge); color: var(--color-text-muted); font-size: var(--text-200); font-weight: var(--font-weight-semibold); }
-.team-filter-grid select { min-height: 44px; padding: 0 var(--spacing-m); border: 1px solid var(--color-input); border-radius: var(--radius-2xl); background: var(--color-surface); color: var(--color-text-primary); font-size: var(--text-300); }
-.team-sheet-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--spacing-s); margin-top: var(--spacing-m); }
-.team-sheet-actions button { min-height: 44px; border: 0; border-radius: var(--radius-2xl); font-size: var(--text-300); font-weight: var(--font-weight-bold); }
-.team-sheet-actions button:first-child { border: 1px solid var(--color-border-soft); background: var(--color-surface-subtle); color: var(--color-text-secondary); }
-.team-sheet-actions button:last-child { background: var(--color-brand-navy); color: var(--color-primary-foreground); }
-
 .team-employee-info { display: grid; gap: var(--spacing-s); margin-bottom: var(--spacing-m); }
 .team-employee-info > div { min-height: 34px; padding: 0 var(--spacing-m-nudge); border-radius: var(--radius-xl); background: var(--color-surface-subtle); display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: var(--spacing-s); align-items: center; }
 .team-employee-info span { color: var(--color-text-muted); font-size: var(--text-100); }
@@ -191,16 +187,6 @@
 .team-mood.is-good { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 8%, var(--color-surface)); }
 .team-mood.is-bad { color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 8%, var(--color-surface)); }
 
-.team-page button:focus-visible,
-.team-details button:focus-visible,
-.team-page select:focus-visible,
-.team-details select:focus-visible,
-.team-page summary:focus-visible,
-.team-details summary:focus-visible {
-  outline: 2px solid var(--color-ring);
-  outline-offset: 2px;
-}
-
 @media (max-width: 390px) {
   .team-page .app { padding-inline: var(--spacing-m-nudge); }
   .team-risk-hero { grid-template-columns: minmax(0, 1.32fr) minmax(108px, .8fr); }
@@ -220,111 +206,6 @@
   .team-page .app { scroll-behavior: auto; }
   .team-page *, .team-details * { transition-duration: .01ms; animation-duration: .01ms; }
 }
-
-/* TEAM_DATE_NAVIGATOR_SYNC_START */
-
-.team-page .mtdDateNav {
-  width: min(300px, 100%);
-  min-width: 0;
-  min-height: 40px;
-
-  padding: 4px 12px;
-
-  border: 1px solid rgba(255, 255, 255, .22);
-  border-radius: 999px;
-
-  background: rgba(255, 255, 255, .42);
-
-  box-shadow:
-    0 10px 18px rgba(26, 70, 145, .08),
-    inset 0 1px 0 rgba(255, 255, 255, .92);
-
-  display: grid;
-  grid-template-columns:
-    28px
-    minmax(0, 1fr)
-    28px;
-
-  align-items: center;
-  gap: 8px;
-}
-
-.team-page .mtdNavBtn {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-
-  padding: 0;
-
-  border: 0;
-  border-radius: 999px;
-
-  background: transparent;
-  color: #21449b;
-
-  display: grid;
-  place-items: center;
-}
-
-.team-page .mtdNavBtn:disabled {
-  visibility: hidden;
-}
-
-.team-page .mtdNavBtn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.team-page .mtdDateText {
-  min-width: 0;
-
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-
-  gap: 5px;
-
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.team-page .mtdLabel {
-  flex: 0 0 auto;
-
-  color: #75839b;
-  line-height: 1.1;
-}
-
-.team-page .mtdValue {
-  flex: 0 1 auto;
-  min-width: 0;
-
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-
-  color: #1b3c88;
-  line-height: 1.1;
-  font-weight: 700;
-
-  font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 390px) {
-  .team-page .mtdDateNav {
-    width: min(260px, 100%);
-    padding-inline: 10px;
-  }
-}
-
-@media (max-width: 360px) {
-  .team-page .mtdDateNav {
-    width: min(236px, 100%);
-    padding-inline: 8px;
-  }
-}
-
-/* TEAM_DATE_NAVIGATOR_SYNC_END */
 
 /* Team segmented KPI target line */
 
@@ -356,3 +237,227 @@
   }
 }
 
+.team-region-semantic-state {
+  min-height: 216px;
+  margin-bottom: 0;
+}
+
+.team-region-table-state {
+  min-height: 58px;
+  margin-bottom: 0;
+  border-width: 0 0 1px;
+  border-radius: 0;
+}
+/* TEAM_TABLE_LAYOUT_REFINEMENT_START */
+
+.team-data-table {
+  --team-table-gap: 10px;
+  --team-table-total-width: 92px;
+  --team-table-risk-width: 86px;
+  --team-table-action-width: 24px;
+}
+
+.team-data-table .team-table-head,
+.team-data-table .team-table-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    var(--team-table-total-width)
+    var(--team-table-risk-width)
+    var(--team-table-action-width);
+  column-gap: var(--team-table-gap);
+  align-items: center;
+}
+
+.team-data-table .team-table-head::after {
+  content: "";
+  width: var(--team-table-action-width);
+  height: 1px;
+}
+
+.team-data-table .team-table-head {
+  min-height: 38px;
+  font-size: var(--text-100);
+  line-height: 1.25;
+}
+
+.team-data-table .team-table-head span:first-child {
+  min-width: 0;
+  text-align: left;
+}
+
+.team-data-table .team-table-head span:nth-child(2),
+.team-data-table .team-table-head span:nth-child(3) {
+  width: 100%;
+  justify-self: stretch;
+  text-align: center;
+}
+
+.team-data-table .team-table-row {
+  min-height: 54px;
+  padding: 9px 0;
+}
+
+.team-data-table .team-entity {
+  min-width: 0;
+  grid-template-columns:
+    22px
+    minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.team-data-table .team-entity > i {
+  width: 22px;
+  height: 22px;
+  border-width: 6px;
+}
+
+.team-data-table .team-entity b {
+  display: block;
+  min-width: 0;
+  overflow: visible;
+  color: var(--color-text-primary);
+  font-size: var(--text-100);
+  line-height: 1.28;
+  font-weight: var(--font-weight-semibold);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  text-overflow: clip;
+}
+
+.team-data-table .team-entity span {
+  margin-top: 2px;
+  font-size: var(--text-100);
+  line-height: 1.2;
+}
+
+.team-data-table .team-metric-pair {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  gap: 4px;
+  font-size: var(--text-100);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.team-data-table .team-metric-pair strong,
+.team-data-table .team-metric-pair em,
+.team-data-table .team-metric-pair i {
+  font-size: var(--text-100);
+  line-height: 1.2;
+}
+
+.team-data-table .team-row-drill-button {
+  position: static;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  justify-self: center;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  appearance: none;
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--color-border-soft) 70%,
+      transparent
+    );
+  border-radius: var(--radius-full);
+  background:
+    color-mix(
+      in srgb,
+      var(--color-brand-soft) 55%,
+      var(--color-surface)
+    );
+  color:
+    color-mix(
+      in srgb,
+      var(--color-brand-blue) 55%,
+      var(--color-text-muted)
+    );
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.team-data-table .team-row-drill-button svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 1.6;
+}
+
+.team-data-table .team-row-drill-button:focus-visible {
+  outline: 2px solid
+    color-mix(
+      in srgb,
+      var(--color-brand-blue) 45%,
+      transparent
+    );
+  outline-offset: 2px;
+}
+
+.team-data-table .team-row-drill-button:active {
+  opacity: 0.7;
+}
+
+@media (max-width: 390px) {
+  .team-data-table {
+    --team-table-gap: 6px;
+    --team-table-total-width: 84px;
+    --team-table-risk-width: 78px;
+    --team-table-action-width: 22px;
+  }
+
+  .team-data-table .team-table-row {
+    min-height: 52px;
+    padding-block: 8px;
+  }
+
+  .team-data-table .team-entity {
+    grid-template-columns:
+      20px
+      minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .team-data-table .team-entity > i {
+    width: 20px;
+    height: 20px;
+    border-width: 5px;
+  }
+
+  .team-data-table .team-row-drill-button {
+    width: 20px;
+    height: 20px;
+  }
+
+  .team-data-table .team-row-drill-button svg {
+    width: 11px;
+    height: 11px;
+  }
+}
+
+@media (max-width: 360px) {
+  .team-data-table {
+    --team-table-gap: 4px;
+    --team-table-total-width: 76px;
+    --team-table-risk-width: 70px;
+    --team-table-action-width: 20px;
+  }
+
+  .team-data-table .team-table-head,
+  .team-data-table .team-table-row {
+    font-size: var(--text-100);
+  }
+
+  .team-data-table .team-metric-pair {
+    gap: 2px;
+  }
+}
+
+/* TEAM_TABLE_LAYOUT_REFINEMENT_END */

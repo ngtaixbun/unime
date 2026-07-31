@@ -37,7 +37,9 @@ export function averageTeamField(
   rows: readonly TeamEmployeeRow[],
   field: TeamMetricPercentageField,
 ): number | null {
-  const values = rows.map((row) => row[field]).filter(Number.isFinite);
+  const values = rows
+    .map((row) => row[field])
+    .filter((value): value is number => Number.isFinite(value));
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
 
@@ -45,7 +47,49 @@ export function averageTeamMetric(
   rows: readonly TeamEmployeeRow[],
   metricKey: TeamMetricKey,
 ): number | null {
-  return averageTeamField(rows, TEAM_METRIC_MAP[metricKey].pct);
+  const metric = TEAM_METRIC_MAP[metricKey];
+  const actual = rows.reduce(
+    (sum, row) => sum + (Number(row[metric.actual]) || 0),
+    0,
+  );
+  const target = rows.reduce(
+    (sum, row) => sum + (Number(row[metric.target]) || 0),
+    0,
+  );
+  return target > 0 ? actual / target : null;
+}
+
+export function aggregateTeamEmployeeRows(
+  rows: readonly TeamEmployeeRow[],
+): TeamEmployeeRow[] {
+  return [...rows.reduce((groups, row) => {
+    const group = groups.get(row.empCode);
+    if (group) group.push(row);
+    else groups.set(row.empCode, [row]);
+    return groups;
+  }, new Map<string, TeamEmployeeRow[]>()).values()]
+    .map((employeeRows) => {
+      const latest = [...employeeRows].sort(
+        (left, right) => left.date.localeCompare(right.date),
+      ).at(-1) as TeamEmployeeRow;
+      const aggregate = { ...latest };
+
+      TEAM_METRICS.forEach((metric) => {
+        const actual = employeeRows.reduce(
+          (sum, row) => sum + (Number(row[metric.actual]) || 0),
+          0,
+        );
+        const target = employeeRows.reduce(
+          (sum, row) => sum + (Number(row[metric.target]) || 0),
+          0,
+        );
+        aggregate[metric.actual] = actual;
+        aggregate[metric.target] = target;
+        aggregate[metric.pct] = target > 0 ? actual / target : null;
+      });
+
+      return aggregate;
+    });
 }
 
 export function isTeamMetricRisk(
@@ -54,27 +98,31 @@ export function isTeamMetricRisk(
   threshold = TEAM_THRESHOLD,
 ): boolean {
   const value = row[TEAM_METRIC_MAP[metricKey].pct];
-  return Number.isFinite(value) && value < threshold;
+  return Number.isFinite(value) && value !== null && value < threshold;
 }
 
 export function countFailedTeamMetrics(
   row: TeamEmployeeRow,
   threshold = TEAM_THRESHOLD,
 ): number {
-  return TEAM_METRICS.reduce(
-    (count, metric) =>
-      count + (Number.isFinite(row[metric.pct]) && row[metric.pct] < threshold ? 1 : 0),
-    0,
-  );
+  return TEAM_METRICS.reduce((count, metric) => {
+    const value = row[metric.pct];
+    return count + (
+      Number.isFinite(value) && value !== null && value < threshold
+        ? 1
+        : 0
+    );
+  }, 0);
 }
 
 export function getFailedTeamMetricKeys(
   row: TeamEmployeeRow,
   threshold = TEAM_THRESHOLD,
 ): TeamMetricKey[] {
-  return TEAM_METRICS.filter((metric) => row[metric.pct] < threshold).map(
-    (metric) => metric.key,
-  );
+  return TEAM_METRICS.filter((metric) => {
+    const value = row[metric.pct];
+    return Number.isFinite(value) && value !== null && value < threshold;
+  }).map((metric) => metric.key);
 }
 
 export function selectTeamRiskRows(
@@ -90,14 +138,17 @@ export function selectTeamRiskRows(
 
 export function getTeamRowMinimum(row: TeamEmployeeRow): number {
   return Math.min(
-    ...TEAM_METRICS.map((metric) =>
-      Number.isFinite(row[metric.pct]) ? row[metric.pct] : 9,
-    ),
+    ...TEAM_METRICS.map((metric) => {
+      const value = row[metric.pct];
+      return Number.isFinite(value) && value !== null ? value : 9;
+    }),
   );
 }
 
 export function getTeamRowAverage(row: TeamEmployeeRow): number {
-  const values = TEAM_METRICS.map((metric) => row[metric.pct]).filter(Number.isFinite);
+  const values = TEAM_METRICS
+    .map((metric) => row[metric.pct])
+    .filter((value): value is number => Number.isFinite(value));
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 }
 
@@ -112,7 +163,7 @@ export function sortTeamMetrics(
 ): TeamMetricResult[] {
   return TEAM_METRICS.map((metric) => ({
     metric,
-    value: averageTeamField(rows, metric.pct),
+    value: averageTeamMetric(rows, metric.key),
     fails: selectTeamRiskRows(rows, metric.key, threshold).length,
   })).sort((left, right) => (left.value ?? 9) - (right.value ?? 9));
 }
@@ -164,7 +215,10 @@ export function selectMultiKpiTeamRows(
     group === "safe" || selected.length === 0
       ? groupDefinition.rows
       : groupDefinition.rows.filter((row) =>
-          selected.every((key) => row[TEAM_METRIC_MAP[key].pct] < threshold),
+          selected.every((key) => {
+            const value = row[TEAM_METRIC_MAP[key].pct];
+            return Number.isFinite(value) && value !== null && value < threshold;
+          }),
         );
 
   return [...filtered].sort((left, right) =>
@@ -194,11 +248,14 @@ export function calculateTeamStreakRows(
       let streak = 0;
       for (let index = dateIndex; index >= 0; index -= 1) {
         const row = getTeamRow(rowIndex, dates[index], currentRow.empCode);
+        const value = row?.[metric.pct];
         if (
           row &&
           matchesTeamFilters(row, filters) &&
-          Number.isFinite(row[metric.pct]) &&
-          row[metric.pct] < threshold
+          Number.isFinite(value) &&
+          value !== null &&
+          value !== undefined &&
+          value < threshold
         ) {
           streak += 1;
         } else {
@@ -333,7 +390,7 @@ export function calculateTeamRiskSummary(
     },
     topKpi: TEAM_METRICS.map((metric) => ({
       metric,
-      value: averageTeamField(currentRows, metric.pct),
+      value: averageTeamMetric(currentRows, metric.key),
       fails: selectTeamRiskRows(currentRows, metric.key, threshold).length,
     })).sort((left, right) => right.fails - left.fails)[0] ?? {
       metric: TEAM_METRICS[0],

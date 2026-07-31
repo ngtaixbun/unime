@@ -7,7 +7,7 @@
 
 import react from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, type PluginOption } from "vite";
+import { defineConfig, loadEnv, type PluginOption } from "vite";
 import license from "rollup-plugin-license";
 
 import { resolve } from 'path';
@@ -42,7 +42,39 @@ const localNetworkAccessPlugin: PluginOption = {
 };
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+    const viteEnv = loadEnv(mode, projectRoot, '');
+    const backendTarget = viteEnv.VITE_API_BASE_URL?.trim().replace(/\/+$/, '');
+
+    return {
+    server: {
+        // Vite normally increments the port silently. Keep the default
+        // development origin deterministic so it cannot drift outside the
+        // backend's explicit CORS allowlist. A deliberate `--port` override
+        // still works and must also be present in CORS_ORIGINS.
+        port: 5173,
+        strictPort: true,
+        ...(backendTarget
+            ? {
+                proxy: {
+                    '/api': {
+                        target: backendTarget,
+                        changeOrigin: true,
+                        secure: true,
+                        configure(proxy) {
+                            proxy.on('proxyReq', (proxyRequest) => {
+                                // Local browser requests can carry their
+                                // localhost Origin header even though Vite is
+                                // forwarding server-to-server. Do not forward
+                                // that browser-only CORS context to Render.
+                                proxyRequest.removeHeader('origin');
+                            });
+                        },
+                    },
+                },
+            }
+            : {}),
+    },
     plugins: [
         react(),
         tailwindcss(),
@@ -99,4 +131,5 @@ export default defineConfig({
             ],
         },
     },
+    };
 });

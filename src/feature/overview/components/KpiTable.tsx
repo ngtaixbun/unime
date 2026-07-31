@@ -1,12 +1,10 @@
-import type {
-  OverviewKpi,
-  OverviewPeriod,
-} from "../types";
+import type { ReportPeriod } from "@/lib/report-period";
+import type { OverviewKpi } from "../types";
 import { KpiRow } from "./KpiRow";
 
 interface KpiTableProps {
   kpis: OverviewKpi[];
-  period: OverviewPeriod;
+  period: ReportPeriod;
   selectedKpiId: string | null;
   title: string;
   note?: string;

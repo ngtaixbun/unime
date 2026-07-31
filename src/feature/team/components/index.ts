@@ -5,7 +5,5 @@ export * from "./details/TeamMultiKpiPanel";
 export * from "./details/TeamNppPanel";
 export * from "./details/TeamStreakPanel";
 export * from "./employee/TeamEmployeeDetailsSheet";
-export * from "./filters/TeamFilterSheet";
 export * from "./overview/TeamKpiSection";
 export * from "./overview/TeamRiskOverview";
-export * from "./DateNavigator";

@@ -35,7 +35,7 @@ const cycles: DimDateRow[] = [
     cycleKey: 202608,
     cycleLabel: "Tháng 08",
     cycleStartDate: "2026-07-21T00:00:00.000",
-    cycleEndDate: "2026-07-21T00:00:00.000",
+    cycleEndDate: "2026-07-23T00:00:00.000",
     cycleSort: 202608,
     isLatestCycle: true,
   },
@@ -53,7 +53,7 @@ describe("useOverviewPeriod", () => {
     expect(result.current.selectedCycle).toEqual(cycles[2]);
     expect(result.current.selectedCycleIndex).toBe(2);
     expect(result.current.dateLabel).toBe(
-      "21/07 - 21/07",
+      "21/07 - 23/07",
     );
     expect(result.current.canGoPrevious).toBe(true);
     expect(result.current.canGoNext).toBe(false);
@@ -234,7 +234,7 @@ describe("useOverviewPeriod", () => {
     );
   });
 
-  it("uses start and end values directly instead of deriving calendar-month boundaries", () => {
+  it("uses the Semantic Model cycle boundaries without deriving calendar-month dates", () => {
     const semanticRange: DimDateRow[] = [
       {
         cycleKey: "202607",
@@ -277,7 +277,7 @@ describe("useOverviewPeriod", () => {
     expect(result.current.selectedCycleKey).toBe(202607);
 
     act(() => {
-      result.current.setPeriod("seven-days");
+      result.current.setPeriod("7days");
     });
     expect(result.current.selectedCycleKey).toBe(202607);
   });

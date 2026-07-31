@@ -10,9 +10,19 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { useSemanticModelQuery, clearQueryCache } from "@/hooks/use-semantic-model-query";
 
 // Mock the Fabric client module so tests run offline.
-const mockClearCache = vi.fn();
-const mockSemanticModelClearCache = vi.fn();
-const mockQuery = vi.fn();
+const {
+    mockClearCache,
+    mockSemanticModelClearCache,
+    mockQuery,
+    mockRegisteredBackendQuery,
+    mockGenericBackendQuery,
+} = vi.hoisted(() => ({
+    mockClearCache: vi.fn(),
+    mockSemanticModelClearCache: vi.fn(),
+    mockQuery: vi.fn(),
+    mockRegisteredBackendQuery: vi.fn(),
+    mockGenericBackendQuery: vi.fn(),
+}));
 
 vi.mock("@/lib/fabric-client", () => ({
     getFabricClient: () => ({
@@ -24,9 +34,16 @@ vi.mock("@/lib/fabric-client", () => ({
     }),
 }));
 
+vi.mock("@/lib/backend-semantic-model-client", () => ({
+    executeBackendSemanticModelQuery: mockRegisteredBackendQuery,
+    executeGenericBackendSemanticModelQuery: mockGenericBackendQuery,
+}));
+
 describe("useSemanticModelQuery", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.unstubAllEnvs();
+        vi.stubEnv("VITE_DATA_SOURCE", "fabric");
     });
 
     it("starts in the loading state", () => {
@@ -98,11 +115,89 @@ describe("useSemanticModelQuery", () => {
 
         expect(mockQuery).toHaveBeenCalledTimes(2);
     });
+
+    it("sends the complete DAX query and column metadata through generic backend mode", async () => {
+        vi.stubEnv("VITE_DATA_SOURCE", "backend");
+        vi.stubEnv("VITE_BACKEND_QUERY_MODE", "generic");
+
+        const successResult = {
+            status: "success" as const,
+            table: {
+                columns: [{ name: "[Value]", dataType: "unknown" }],
+                rows: [[1]],
+            },
+            requestId: "",
+            fromCache: false,
+            cachedAt: undefined,
+        };
+        mockGenericBackendQuery.mockResolvedValue(successResult);
+
+        const { result } = renderHook(() =>
+            useSemanticModelQuery({
+                connection: "model",
+                query: "EVALUATE ROW(\"Value\", 1)",
+                columnMetadata: {
+                    "[Value]": {
+                        name: "Value",
+                        displayName: "Value",
+                    },
+                },
+                backendRequest: {
+                    queryId: "dim-date",
+                    params: {},
+                },
+            }),
+        );
+
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        expect(mockGenericBackendQuery).toHaveBeenCalledWith({
+            query: "EVALUATE ROW(\"Value\", 1)",
+            expectedColumns: ["[Value]"],
+        });
+        expect(mockRegisteredBackendQuery).not.toHaveBeenCalled();
+        expect(mockQuery).not.toHaveBeenCalled();
+        expect(result.current.data).toEqual(successResult);
+    });
+
+    it("keeps the registered backend request as the rollback mode", async () => {
+        vi.stubEnv("VITE_DATA_SOURCE", "backend");
+        vi.stubEnv("VITE_BACKEND_QUERY_MODE", "registered");
+
+        const successResult = {
+            status: "success" as const,
+            table: { columns: [], rows: [] },
+            requestId: "",
+            fromCache: false,
+            cachedAt: undefined,
+        };
+        mockRegisteredBackendQuery.mockResolvedValue(successResult);
+
+        const backendRequest = {
+            queryId: "dim-date" as const,
+            params: {},
+        };
+        const { result } = renderHook(() =>
+            useSemanticModelQuery({
+                connection: "model",
+                query: "EVALUATE ROW()",
+                backendRequest,
+            }),
+        );
+
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        expect(mockRegisteredBackendQuery).toHaveBeenCalledWith(backendRequest);
+        expect(mockGenericBackendQuery).not.toHaveBeenCalled();
+        expect(mockQuery).not.toHaveBeenCalled();
+    });
 });
 
 describe("clearQueryCache", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.unstubAllEnvs();
+        vi.stubEnv("VITE_DATA_SOURCE", "fabric");
     });
 
     it("clears all caches when called without an argument", () => {

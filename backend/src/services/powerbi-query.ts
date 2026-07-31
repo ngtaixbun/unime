@@ -38,6 +38,12 @@ export interface PowerBiQueryResult {
   >;
 }
 
+export interface PowerBiTabularQueryResult {
+  columns: string[];
+
+  rows: unknown[][];
+}
+
 export class PowerBiServiceError
   extends Error {
   public constructor(
@@ -48,6 +54,34 @@ export class PowerBiServiceError
   ) {
     super(message);
     this.name = "PowerBiServiceError";
+  }
+}
+
+export function assertPowerBiQueryResultColumns(
+  result:
+    PowerBiQueryResult,
+  expectedColumns:
+    readonly string[],
+): void {
+  const availableColumns =
+    new Set(
+      result.columns,
+    );
+
+  const missingColumn =
+    expectedColumns.find(
+      (columnName) =>
+        !availableColumns.has(
+          columnName,
+        ),
+    );
+
+  if (missingColumn) {
+    throw new PowerBiServiceError(
+      `Power BI thiếu cột ${missingColumn}.`,
+      502,
+      "POWERBI_SCHEMA_MISMATCH",
+    );
   }
 }
 
@@ -92,6 +126,44 @@ function normalizeRows(
   return {
     columns,
     rows: normalizedRows,
+  };
+}
+
+export function toPowerBiTabularQueryResult(
+  rows: Array<
+    Record<string, unknown>
+  >,
+  expectedColumns: readonly string[],
+): PowerBiTabularQueryResult {
+  const tabularRows =
+    rows.map(
+      (row, rowIndex) =>
+        expectedColumns.map(
+          (columnName) => {
+            if (
+              !Object.prototype
+                .hasOwnProperty.call(
+                  row,
+                  columnName,
+                )
+            ) {
+              throw new PowerBiServiceError(
+                `Power BI thiếu cột ${columnName} tại dòng ${rowIndex}.`,
+                502,
+                "POWERBI_SCHEMA_MISMATCH",
+              );
+            }
+
+            return row[columnName];
+          },
+        ),
+    );
+
+  return {
+    columns: [
+      ...expectedColumns,
+    ],
+    rows: tabularRows,
   };
 }
 
@@ -143,9 +215,11 @@ function extractAxiosMessage(
       : null;
 }
 
-export async function executePowerBiDax(
+async function executePowerBiDaxRows(
   dax: string,
-): Promise<PowerBiQueryResult> {
+): Promise<Array<
+  Record<string, unknown>
+>> {
   if (dax.trim() === "") {
     throw new PowerBiServiceError(
       "DAX query đang trống.",
@@ -233,7 +307,7 @@ export async function executePowerBiDax(
         ?.tables?.[0]
         ?.rows ?? [];
 
-    return normalizeRows(rows);
+    return rows;
   } catch (error: unknown) {
     if (
       error instanceof
@@ -317,4 +391,31 @@ export async function executePowerBiDax(
       error,
     );
   }
+}
+
+export async function executePowerBiDax(
+  dax: string,
+): Promise<PowerBiQueryResult> {
+  const rows =
+    await executePowerBiDaxRows(
+      dax,
+    );
+
+  return normalizeRows(rows);
+}
+
+export async function executePowerBiDaxTabular(
+  dax: string,
+  expectedColumns:
+    readonly string[],
+): Promise<PowerBiTabularQueryResult> {
+  const rows =
+    await executePowerBiDaxRows(
+      dax,
+    );
+
+  return toPowerBiTabularQueryResult(
+    rows,
+    expectedColumns,
+  );
 }

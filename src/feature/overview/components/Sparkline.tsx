@@ -3,7 +3,7 @@ import type { TrendPoint } from "../types";
 interface SparklineProps {
   points: TrendPoint[];
   title: string;
-  mode: "seven-days" | "mtd";
+  mode: "7days" | "mtd";
 }
 
 interface PlotPoint {
@@ -281,7 +281,7 @@ export function Sparkline({
   );
 
   const validPoints =
-    mode === "seven-days"
+    mode === "7days"
       ? sortedPoints.slice(-7)
       : sortedPoints;
 

@@ -1,17 +1,29 @@
 /* eslint-disable react-refresh/only-export-components -- feature provider and its tightly-coupled hooks share one public state contract */
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 import {
-  EMPTY_TEAM_FILTERS,
+  useOrganizationFilters,
+} from "@/components/organization-filter";
+import { useDimDateData } from "@/hooks/use-dim-date-data";
+import { useKpiCyclePeriod } from "@/hooks/use-kpi-cycle-period";
+import {
+  getReportDateRange,
+  selectReportDates,
+  type ReportPeriod,
+} from "@/lib/report-period";
+import {
+  adaptOrganizationFiltersToLegacyTeamFilters,
+  aggregateTeamEmployeeRows,
   calculateTeamEmployeeTrend,
-  calculateTeamEntityStats,
   calculateTeamRiskSummary,
-  countAppliedTeamFilters,
   filterTeamRows,
-  getTeamFilterSummary,
-  normalizeTeamFilterDraft,
-  selectRowsByDate,
-  selectTeamFilterOptions,
 } from "../lib";
 import type {
   TeamEmployeeDetailsState,
@@ -23,27 +35,47 @@ import type {
 import { teamQueries } from "../queries";
 
 const TEAM_DATA = teamQueries.getData();
+const TEAM_ENABLED_PERIOD: ReportPeriod = "mtd";
 
 interface TeamStateValue {
   data: typeof TEAM_DATA;
   reportDate: string;
+  routeDate: string;
   dateIndex: number;
+  period: ReportPeriod;
+  periodLabel: string;
+  dateLabel: string;
+  cycleLabel: string;
+  selectedCycleKey: string | number | null;
+  cycleLoading: boolean;
+  cycleError: string | null;
+  reloadCycles: () => Promise<void>;
+  reportDates: string[];
+  canGoPrevious: boolean;
+  canGoNext: boolean;
   filters: TeamFilterState;
-  draftFilters: TeamFilterState;
-  filterOptions: ReturnType<typeof selectTeamFilterOptions>;
-  appliedFilterCount: number;
   filterSummary: string;
   currentRows: TeamEmployeeRow[];
   currentDateRows: TeamEmployeeRow[];
-  isFilterOpen: boolean;
+  currentPeriodRows: TeamEmployeeRow[];
   employeeDetails: TeamEmployeeDetailsState;
+  selectedMetric: TeamMetricKey;
+  selectedLevel: TeamEntityLevel;
+  selectedEntity: string;
+  setPeriod: (period: ReportPeriod) => void;
+  setSelectedMetric: (metric: TeamMetricKey) => void;
+  setSelectedLevel: (level: TeamEntityLevel) => void;
+  setSelectedEntity: (entity: string) => void;
+  hydrateFromSearchParams: (params: URLSearchParams) => void;
+  createRouteSearchParams: (
+    values?: Partial<{
+      tab: string;
+      metric: TeamMetricKey;
+      group: string;
+    }>,
+  ) => URLSearchParams;
   goToPreviousDate: () => void;
   goToNextDate: () => void;
-  openFilterSheet: () => void;
-  closeFilterSheet: () => void;
-  updateDraftFilter: (name: keyof TeamFilterState, value: string) => void;
-  applyFilters: () => void;
-  resetFilters: () => void;
   openEmployeeDetails: (employeeCode: string, metric?: TeamMetricKey) => void;
   closeEmployeeDetails: () => void;
   setEmployeeMetric: (metric: TeamMetricKey) => void;
@@ -54,10 +86,37 @@ const TeamStateContext = createContext<TeamStateValue | null>(null);
 
 export function TeamProvider({ children }: { children: ReactNode }) {
   const dates = TEAM_DATA.meta.dates;
-  const [dateIndex, setDateIndex] = useState(Math.max(0, dates.length - 1));
-  const [filters, setFilters] = useState<TeamFilterState>({ ...EMPTY_TEAM_FILTERS });
-  const [draftFilters, setDraftFilters] = useState<TeamFilterState>({ ...EMPTY_TEAM_FILTERS });
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [initialContext] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      anchorDate: params.get("date"),
+    };
+  });
+  const {
+    appliedFilters,
+    appliedFilterLabels,
+  } = useOrganizationFilters();
+  const {
+    cycles,
+    loading: cycleLoading,
+    error: cycleError,
+    reload: reloadCycles,
+  } = useDimDateData();
+  const cycleReport = useKpiCyclePeriod(
+    cycles,
+    {
+      period: TEAM_ENABLED_PERIOD,
+      anchorDate: initialContext.anchorDate,
+    },
+  );
+  const {
+    goToPreviousDate: goToPreviousCycle,
+    goToNextDate: goToNextCycle,
+    setAnchorDate: setCycleAnchorDate,
+  } = cycleReport;
+  const [selectedMetric, setSelectedMetric] = useState<TeamMetricKey>("qc");
+  const [selectedLevel, setSelectedLevel] = useState<TeamEntityLevel>("region");
+  const [selectedEntity, setSelectedEntity] = useState("");
   const [employeeDetails, setEmployeeDetails] = useState<TeamEmployeeDetailsState>({
     empCode: null,
     metric: "calls",
@@ -65,91 +124,212 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     isOpen: false,
   });
 
-  const reportDate = dates[dateIndex] ?? dates.at(-1) ?? "";
+  // Phase hiện tại chỉ chuyển Date Navigator sang Chu kỳ KPI.
+  // Data Team vẫn dùng mock MTD hiện có cho đến khi Team Semantic query được triển khai.
+  const reportDate = dates.at(-1) ?? "";
+  const dateIndex = dates.indexOf(reportDate);
+  const reportDates = useMemo(
+    () => selectReportDates(
+      dates,
+      getReportDateRange(
+        TEAM_ENABLED_PERIOD,
+        reportDate,
+      ),
+    ),
+    [dates, reportDate],
+  );
   const currentDateRows = useMemo(
-    () => selectRowsByDate(TEAM_DATA.rows, reportDate),
+    () => TEAM_DATA.rows.filter((row) => row.date === reportDate),
     [reportDate],
   );
+  const currentPeriodRows = useMemo(
+    () => TEAM_DATA.rows.filter((row) => reportDates.includes(row.date)),
+    [reportDates],
+  );
+  const filters = useMemo(
+    () =>
+      adaptOrganizationFiltersToLegacyTeamFilters(
+        TEAM_DATA.rows,
+        appliedFilters,
+        appliedFilterLabels,
+      ),
+    [
+      appliedFilterLabels,
+      appliedFilters,
+    ],
+  );
   const currentRows = useMemo(
-    () => filterTeamRows(currentDateRows, filters),
-    [currentDateRows, filters],
+    () => aggregateTeamEmployeeRows(
+      filterTeamRows(currentPeriodRows, filters),
+    ),
+    [currentPeriodRows, filters],
   );
-  const filterOptions = useMemo(
-    () => selectTeamFilterOptions(currentDateRows, draftFilters),
-    [currentDateRows, draftFilters],
-  );
+  const filterSummary =
+    useMemo(() => {
+      const labels = [
+        appliedFilters.region ===
+        "all"
+          ? null
+          : appliedFilterLabels.region ??
+            "Khu vực đã chọn",
+        appliedFilters.amm ===
+        "all"
+          ? null
+          : appliedFilterLabels.amm ??
+            "AMM đã chọn",
+        appliedFilters.supervisor ===
+        "all"
+          ? null
+          : appliedFilterLabels.supervisor ??
+            "Supervisor đã chọn",
+      ].filter(
+        (
+          label,
+        ): label is string =>
+          label !== null,
+      );
+
+      return labels.length
+        ? labels.join(" · ")
+        : "Tất cả dữ liệu";
+    }, [
+      appliedFilterLabels,
+      appliedFilters,
+    ]);
+
+  const routeDate =
+    cycleReport.anchorDate ||
+    initialContext.anchorDate ||
+    "";
+  const cycleLabel =
+    cycleReport.selectedCycle?.cycleLabel ??
+    (cycleLoading
+      ? "Đang tải chu kỳ KPI"
+      : "Chu kỳ KPI");
+  const dateLabel =
+    cycleReport.dateLabel ||
+    (cycleLoading ? "Đang tải..." : "—");
 
   const goToPreviousDate = useCallback(() => {
-    setDateIndex((value) => Math.max(0, value - 1));
+    goToPreviousCycle();
     setEmployeeDetails((value) => ({ ...value, selectedDate: null }));
-  }, []);
+  }, [goToPreviousCycle]);
   const goToNextDate = useCallback(() => {
-    setDateIndex((value) => Math.min(dates.length - 1, value + 1));
+    goToNextCycle();
     setEmployeeDetails((value) => ({ ...value, selectedDate: null }));
-  }, [dates.length]);
-  const openFilterSheet = useCallback(() => {
-    setDraftFilters({ ...filters });
-    setIsFilterOpen(true);
-  }, [filters]);
-  const closeFilterSheet = useCallback(() => setIsFilterOpen(false), []);
-  const updateDraftFilter = useCallback((name: keyof TeamFilterState, value: string) => {
-    setDraftFilters((current) => {
-      if (name === "region") return { region: value, amm: "all", sup: "all" };
-      if (name === "amm") return { ...current, amm: value, sup: "all" };
-      return { ...current, sup: value };
-    });
-  }, []);
-  const applyFilters = useCallback(() => {
-    setFilters(normalizeTeamFilterDraft(draftFilters, filterOptions));
-    setIsFilterOpen(false);
-  }, [draftFilters, filterOptions]);
-  const resetFilters = useCallback(() => {
-    const empty = { ...EMPTY_TEAM_FILTERS };
-    setDraftFilters(empty);
-    setFilters(empty);
-    setIsFilterOpen(false);
+  }, [goToNextCycle]);
+  const setPeriod = useCallback((period: ReportPeriod) => {
+    if (period !== TEAM_ENABLED_PERIOD) {
+      return;
+    }
+
+    setEmployeeDetails((value) => ({ ...value, selectedDate: null }));
   }, []);
   const openEmployeeDetails = useCallback((employeeCode: string, metric: TeamMetricKey = "calls") => {
-    setEmployeeDetails({ empCode: employeeCode, metric, selectedDate: reportDate, isOpen: true });
-  }, [reportDate]);
+    setEmployeeDetails({ empCode: employeeCode, metric, selectedDate: null, isOpen: true });
+  }, []);
   const closeEmployeeDetails = useCallback(() => {
     setEmployeeDetails((value) => ({ ...value, empCode: null, isOpen: false }));
   }, []);
   const setEmployeeMetric = useCallback((metric: TeamMetricKey) => {
-    setEmployeeDetails((value) => ({ ...value, metric, selectedDate: reportDate }));
-  }, [reportDate]);
+    setEmployeeDetails((value) => ({ ...value, metric, selectedDate: null }));
+  }, []);
   const setEmployeeSelectedDate = useCallback((date: string) => {
     setEmployeeDetails((value) => ({ ...value, selectedDate: date }));
   }, []);
 
+  const hydrateFromSearchParams = useCallback((params: URLSearchParams) => {
+    const requestedDate = params.get("date");
+    if (requestedDate) {
+      setCycleAnchorDate(requestedDate);
+    }
+
+    const metric = params.get("teamMetric") as TeamMetricKey | null;
+    if (metric && ["calls", "beat", "time", "osa", "qc"].includes(metric)) {
+      setSelectedMetric(metric);
+    }
+    const level = params.get("level");
+    if (level === "region" || level === "amm") setSelectedLevel(level);
+    setSelectedEntity(params.get("entity") || "");
+  }, [setCycleAnchorDate]);
+
+  const createRouteSearchParams = useCallback((
+    values?: Partial<{
+      tab: string;
+      metric: TeamMetricKey;
+      group: string;
+    }>,
+  ) => {
+    const params = new URLSearchParams({
+      period: TEAM_ENABLED_PERIOD,
+      region:
+        appliedFilters.region,
+      amm:
+        appliedFilters.amm,
+      supervisor:
+        appliedFilters.supervisor,
+      teamMetric: selectedMetric,
+      level: selectedLevel,
+    });
+    if (routeDate) params.set("date", routeDate);
+    if (selectedEntity) params.set("entity", selectedEntity);
+    if (values?.tab) params.set("tab", values.tab);
+    if (values?.metric) params.set("metric", values.metric);
+    if (values?.group) params.set("group", values.group);
+    return params;
+  }, [
+    appliedFilters,
+    routeDate,
+    selectedEntity,
+    selectedLevel,
+    selectedMetric,
+  ]);
+
   const value = useMemo<TeamStateValue>(() => ({
     data: TEAM_DATA,
     reportDate,
+    routeDate,
     dateIndex,
+    period: TEAM_ENABLED_PERIOD,
+    periodLabel: "MTD",
+    dateLabel,
+    cycleLabel,
+    selectedCycleKey: cycleReport.selectedCycleKey,
+    cycleLoading,
+    cycleError,
+    reloadCycles,
+    reportDates,
+    canGoPrevious: cycleReport.canGoPrevious,
+    canGoNext: cycleReport.canGoNext,
     filters,
-    draftFilters,
-    filterOptions,
-    appliedFilterCount: countAppliedTeamFilters(filters),
-    filterSummary: getTeamFilterSummary(TEAM_DATA.rows, filters),
+    filterSummary,
     currentRows,
     currentDateRows,
-    isFilterOpen,
+    currentPeriodRows,
     employeeDetails,
+    selectedMetric,
+    selectedLevel,
+    selectedEntity,
+    setPeriod,
+    setSelectedMetric,
+    setSelectedLevel,
+    setSelectedEntity,
+    hydrateFromSearchParams,
+    createRouteSearchParams,
     goToPreviousDate,
     goToNextDate,
-    openFilterSheet,
-    closeFilterSheet,
-    updateDraftFilter,
-    applyFilters,
-    resetFilters,
     openEmployeeDetails,
     closeEmployeeDetails,
     setEmployeeMetric,
     setEmployeeSelectedDate,
   }), [
-    reportDate, dateIndex, filters, draftFilters, filterOptions, currentRows, currentDateRows,
-    isFilterOpen, employeeDetails, goToPreviousDate, goToNextDate, openFilterSheet,
-    closeFilterSheet, updateDraftFilter, applyFilters, resetFilters, openEmployeeDetails,
+    reportDate, routeDate, dateIndex, dateLabel, cycleLabel,
+    cycleReport.selectedCycleKey, cycleReport.canGoPrevious, cycleReport.canGoNext,
+    cycleLoading, cycleError, reloadCycles, reportDates, filters,
+    filterSummary, currentRows, currentDateRows, currentPeriodRows,
+    employeeDetails, selectedMetric, selectedLevel, selectedEntity, setPeriod,
+    hydrateFromSearchParams, createRouteSearchParams, goToPreviousDate, goToNextDate,
+    openEmployeeDetails,
     closeEmployeeDetails, setEmployeeMetric, setEmployeeSelectedDate,
   ]);
 
@@ -162,41 +342,12 @@ export function useTeamState(): TeamStateValue {
   return value;
 }
 
-export function useTeamOverview(
-  metric: TeamMetricKey,
-  level: TeamEntityLevel,
-  selectedRegion = "",
-) {
+export function useTeamOverview() {
   const team = useTeamState();
 
   return useMemo(() => {
-    const chartEntities = calculateTeamEntityStats(
-      team.currentRows,
-      "region",
-      metric,
-    );
-
-    const selectedRegionEntity =
-      chartEntities.find((entity) => entity.id === selectedRegion) ?? null;
-
-    const allListEntities = calculateTeamEntityStats(
-      team.currentRows,
-      level,
-      metric,
-    );
-
-    const listEntities =
-      level === "amm" && selectedRegionEntity
-        ? allListEntities.filter(
-            (entity) => entity.region === selectedRegionEntity.region,
-          )
-        : allListEntities;
-
     return {
       rows: team.currentRows,
-      chartEntities,
-      listEntities,
-      selectedRegion: selectedRegionEntity?.id ?? "",
       risk: calculateTeamRiskSummary(
         team.currentRows,
         team.data.rows,
@@ -211,9 +362,6 @@ export function useTeamOverview(
     team.data.meta.dates,
     team.reportDate,
     team.filters,
-    level,
-    metric,
-    selectedRegion,
   ]);
 }
 
@@ -227,9 +375,11 @@ export function useTeamEmployeeDetails() {
   return useMemo(() => {
     const code = team.employeeDetails.empCode;
     if (!code) return { row: null, trend: [] };
-    const selectedDate = team.employeeDetails.selectedDate ?? team.reportDate;
+    const selectedDate = team.employeeDetails.selectedDate;
     const fallback = [...team.data.rows].reverse().find((row) => row.empCode === code) ?? null;
-    const row = team.data.rows.find((item) => item.empCode === code && item.date === selectedDate) ?? fallback;
+    const row = selectedDate
+      ? team.data.rows.find((item) => item.empCode === code && item.date === selectedDate) ?? fallback
+      : team.currentRows.find((item) => item.empCode === code) ?? fallback;
     const trend = calculateTeamEmployeeTrend(
       team.data.rows,
       team.data.meta.dates,
@@ -238,5 +388,11 @@ export function useTeamEmployeeDetails() {
       team.reportDate,
     );
     return { row, trend };
-  }, [team.data.rows, team.data.meta.dates, team.employeeDetails, team.reportDate]);
+  }, [
+    team.currentRows,
+    team.data.rows,
+    team.data.meta.dates,
+    team.employeeDetails,
+    team.reportDate,
+  ]);
 }

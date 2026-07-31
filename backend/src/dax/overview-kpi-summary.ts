@@ -18,6 +18,32 @@ export interface OverviewKpiSummaryParams {
     OrgQueryFilters;
 }
 
+/**
+ * Stable response contract consumed by both Overview and Team KPI queries.
+ * Keep this list in DAX alias order so a deployed 16-column query cannot be
+ * mistaken for the current 18-column contract.
+ */
+export const overviewKpiSummaryColumns = [
+  "successfulCallsMtd",
+  "successfulCallsIssued",
+  "visitMtd",
+  "visitIssued",
+  "timeSpendMtd",
+  "timeSpendIssued",
+  "osaMtd",
+  "osaIssued",
+  "qcMtd",
+  "qcIssued",
+  "mtdKpiSelected",
+  "gap",
+  "nvFail",
+  "contributionNvFail",
+  "countNv",
+  "contributionNv",
+  "actual",
+  "target",
+] as const;
+
 const kpiMtdTemplate = `
 DEFINE
     VAR _SelectedCycleKey =

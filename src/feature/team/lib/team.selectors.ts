@@ -1,14 +1,102 @@
 import { TEAM_METRIC_MAP, TEAM_REGION_ORDER } from "./team.constants";
 import type {
+  OrganizationFilterLabels,
+  OrganizationFilters,
+} from "@/components/organization-filter";
+import type {
   TeamEmployeeRow,
   TeamEntityGroup,
   TeamEntityLevel,
-  TeamFilterOption,
-  TeamFilterOptions,
   TeamFilterState,
   TeamMetricKey,
   TeamMetricValues,
 } from "../types";
+
+const UNRESOLVED_SEMANTIC_FILTER =
+  "__unresolved_semantic_filter__";
+
+function selectUniqueLegacyValue(
+  rows: readonly TeamEmployeeRow[],
+  label: string | null,
+  getLabel: (
+    row: TeamEmployeeRow,
+  ) => string,
+  getValue: (
+    row: TeamEmployeeRow,
+  ) => string,
+): string {
+  if (!label) {
+    return UNRESOLVED_SEMANTIC_FILTER;
+  }
+
+  const values =
+    new Set(
+      rows
+        .filter(
+          (row) =>
+            getLabel(row) === label,
+        )
+        .map(getValue),
+    );
+
+  return values.size === 1
+    ? [...values][0]
+    : UNRESOLVED_SEMANTIC_FILTER;
+}
+
+export function adaptOrganizationFiltersToLegacyTeamFilters(
+  rows: readonly TeamEmployeeRow[],
+  filters: OrganizationFilters,
+  labels: OrganizationFilterLabels,
+): TeamFilterState {
+  const region =
+    filters.region === "all"
+      ? "all"
+      : labels.region ??
+        UNRESOLVED_SEMANTIC_FILTER;
+
+  const regionRows =
+    region === "all"
+      ? rows
+      : rows.filter(
+          (row) =>
+            row.region === region,
+        );
+
+  const amm =
+    filters.amm === "all"
+      ? "all"
+      : selectUniqueLegacyValue(
+          regionRows,
+          labels.amm,
+          (row) => row.amm,
+          (row) => row.ammCode,
+        );
+
+  const ammRows =
+    amm === "all"
+      ? regionRows
+      : regionRows.filter(
+          (row) =>
+            row.ammCode === amm,
+        );
+
+  const sup =
+    filters.supervisor === "all"
+      ? "all"
+      : selectUniqueLegacyValue(
+          ammRows,
+          labels.supervisor,
+          (row) => row.sup,
+          (row) => row.supCode,
+        );
+
+  return {
+    region,
+    amm,
+    sup,
+  };
+}
 
 export function groupTeamRowsBy<Key>(
   rows: readonly TeamEmployeeRow[],
@@ -81,29 +169,6 @@ export function selectCurrentTeamRows(
   return filterTeamRows(selectRowsByDate(rows, date), filters);
 }
 
-export function countAppliedTeamFilters(filters: TeamFilterState): number {
-  return Object.values(filters).filter((value) => value && value !== "all").length;
-}
-
-export function findTeamAmmName(rows: readonly TeamEmployeeRow[], code: string): string {
-  return rows.find((row) => row.ammCode === code)?.amm ?? code;
-}
-
-export function findTeamSupName(rows: readonly TeamEmployeeRow[], code: string): string {
-  return rows.find((row) => row.supCode === code)?.sup ?? code;
-}
-
-export function getTeamFilterSummary(
-  rows: readonly TeamEmployeeRow[],
-  filters: TeamFilterState,
-): string {
-  const parts: string[] = [];
-  if (filters.region !== "all") parts.push(filters.region);
-  if (filters.amm !== "all") parts.push(findTeamAmmName(rows, filters.amm));
-  if (filters.sup !== "all") parts.push(findTeamSupName(rows, filters.sup));
-  return parts.length ? parts.join(" · ") : "Tất cả dữ liệu";
-}
-
 function compareByRegionThenName(
   left: { region: string; name: string },
   right: { region: string; name: string },
@@ -113,54 +178,6 @@ function compareByRegionThenName(
       TEAM_REGION_ORDER.indexOf(right.region as (typeof TEAM_REGION_ORDER)[number]) ||
     left.name.localeCompare(right.name, "vi")
   );
-}
-
-export function selectTeamFilterOptions(
-  currentDateRows: readonly TeamEmployeeRow[],
-  draft: TeamFilterState,
-): TeamFilterOptions {
-  const regions = TEAM_REGION_ORDER.filter((region) =>
-    currentDateRows.some((row) => row.region === region),
-  ).map<TeamFilterOption>((region) => ({ value: region, label: region }));
-
-  const ammCandidates = currentDateRows.filter(
-    (row) => draft.region === "all" || row.region === draft.region,
-  );
-  const amms = [...groupTeamRowsBy(ammCandidates, (row) => row.ammCode).entries()]
-    .map(([code, group]) => ({
-      value: code,
-      name: group[0].amm,
-      region: group[0].region,
-      label: `${group[0].amm} · ${group[0].region}`,
-    }))
-    .sort(compareByRegionThenName)
-    .map<TeamFilterOption>(({ value, label }) => ({ value, label }));
-
-  const supCandidates = currentDateRows.filter(
-    (row) =>
-      (draft.region === "all" || row.region === draft.region) &&
-      (draft.amm === "all" || row.ammCode === draft.amm),
-  );
-  const sups = [...groupTeamRowsBy(supCandidates, (row) => row.supCode).entries()]
-    .map(([code, group]) => ({
-      value: code,
-      name: group[0].sup,
-      region: group[0].region,
-      label: group[0].sup,
-    }))
-    .sort(compareByRegionThenName)
-    .map<TeamFilterOption>(({ value, label }) => ({ value, label }));
-
-  return { regions, amms, sups };
-}
-
-export function normalizeTeamFilterDraft(
-  draft: TeamFilterState,
-  options: TeamFilterOptions,
-): TeamFilterState {
-  const amm = options.amms.some((option) => option.value === draft.amm) ? draft.amm : "all";
-  const sup = options.sups.some((option) => option.value === draft.sup) ? draft.sup : "all";
-  return { region: draft.region, amm, sup };
 }
 
 export function selectTeamEntityGroups(
@@ -226,7 +243,7 @@ export function selectLastTeamDates(
 export function selectMetricValue(
   row: TeamEmployeeRow,
   metricKey: TeamMetricKey,
-): number {
+): number | null {
   return row[TEAM_METRIC_MAP[metricKey].pct];
 }
 

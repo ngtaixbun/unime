@@ -26,12 +26,27 @@ import { OverviewPage } from "./OverviewPage";
 const hookMocks = vi.hoisted(() => ({
   useDimDateData: vi.fn(),
   useOverviewData: vi.fn(),
-  useOverviewFilterOptions: vi.fn(),
-  useOverviewFilters: vi.fn(),
   useOverviewPeriod: vi.fn(),
 }));
 
 vi.mock("../hooks", () => hookMocks);
+
+const organizationMocks =
+  vi.hoisted(() => ({
+    useOrganizationFilters:
+      vi.fn(),
+  }));
+
+vi.mock(
+  "@/components/organization-filter",
+  () => ({
+    OrganizationFilterSheet:
+      () => null,
+    useOrganizationFilters:
+      organizationMocks
+        .useOrganizationFilters,
+  }),
+);
 
 const reloadDimDate =
   vi.fn(async () => undefined);
@@ -113,6 +128,7 @@ function setPageHookResults({
     setPeriod,
     goToPreviousDate,
     goToNextDate,
+    anchorDate: "2026-07-21",
   });
   hookMocks.useOverviewData.mockReturnValue({
     data: overviewData,
@@ -120,7 +136,9 @@ function setPageHookResults({
     error: overviewError,
     reload: reloadOverviewData,
   });
-  hookMocks.useOverviewFilters.mockReturnValue({
+  organizationMocks
+    .useOrganizationFilters
+    .mockReturnValue({
     appliedFilters,
     draftFilters,
     appliedFilterCount:
@@ -136,36 +154,11 @@ function setPageHookResults({
     clearDraftFilters: vi.fn(),
     applyFilters: vi.fn(),
   });
-  hookMocks.useOverviewFilterOptions.mockReturnValue({
-    regionOptions: [
-      {
-        label: "Tất cả khu vực",
-        value: "all",
-      },
-    ],
-    ammOptions: [
-      {
-        label: "Tất cả AMM",
-        value: "all",
-      },
-    ],
-    supervisorOptions: [
-      {
-        label: "Tất cả Supervisor",
-        value: "all",
-      },
-    ],
-    isLoadingRegionOptions: false,
-    isLoadingAmmOptions: false,
-    isLoadingSupervisorOptions: false,
-    regionOptionsError: null,
-    ammOptionsError: null,
-    supervisorOptionsError: null,
-  });
 }
 
 describe("OverviewPage MTD cycle states", () => {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/");
     vi.clearAllMocks();
     vi.stubGlobal(
       "requestAnimationFrame",
@@ -182,7 +175,7 @@ describe("OverviewPage MTD cycle states", () => {
     render(<OverviewPage />);
 
     const navigators = screen.getAllByLabelText(
-      "Điều hướng chu kỳ MTD",
+      "Điều hướng ngày báo cáo",
     );
 
     expect(navigators).toHaveLength(2);
@@ -191,27 +184,27 @@ describe("OverviewPage MTD cycle states", () => {
         "MTD:21/07 - 21/07",
       );
       expect(
-        within(navigator).queryByRole(
+        within(navigator).getByRole(
           "button",
           {
-            name: "Chu kỳ sau",
+            name: "Kỳ báo cáo sau",
             hidden: true,
           },
         ),
-      ).not.toBeInTheDocument();
+      ).toBeDisabled();
     }
 
     fireEvent.click(
       within(navigators[0]).getByRole(
         "button",
-        { name: "Chu kỳ trước" },
+        { name: "Kỳ báo cáo trước" },
       ),
     );
     fireEvent.click(
       within(navigators[1]).getByRole(
         "button",
         {
-          name: "Chu kỳ trước",
+          name: "Kỳ báo cáo trước",
           hidden: true,
         },
       ),
@@ -222,7 +215,10 @@ describe("OverviewPage MTD cycle states", () => {
     ).toHaveBeenCalledTimes(2);
     expect(
       hookMocks.useOverviewPeriod,
-    ).toHaveBeenCalledWith(cycles);
+    ).toHaveBeenCalledWith(cycles, {
+      period: "mtd",
+      anchorDate: null,
+    });
     expect(
       hookMocks.useOverviewData,
     ).toHaveBeenCalledWith({
@@ -234,6 +230,51 @@ describe("OverviewPage MTD cycle states", () => {
         supervisor: "all",
       },
     });
+  });
+
+  it("renders the shared controls and keeps Overview back on the Landing toast", () => {
+    render(<OverviewPage />);
+
+    expect(document.querySelector(".dashboard-header")).toBeInTheDocument();
+    expect(document.querySelector(".report-period-mode")).toBeInTheDocument();
+    expect(document.querySelector(".app-bottom-nav")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tổng quan" })).toHaveAttribute("aria-current", "page");
+
+    fireEvent.click(screen.getByRole("button", { name: "Về trang Landing" }));
+    expect(screen.getByText("Chức năng chưa được triển khai")).toBeVisible();
+  });
+
+  it("renders the shared applied-count badge in both Overview filter triggers", () => {
+    setPageHookResults({
+      appliedFilters: {
+        region: "number:1",
+        amm: "all",
+        supervisor: "all",
+      },
+    });
+
+    render(<OverviewPage />);
+
+    const filterTriggers =
+      screen.getAllByRole(
+        "button",
+        {
+          name: "Mở bộ lọc",
+          hidden: true,
+        },
+      );
+
+    expect(filterTriggers).toHaveLength(2);
+    for (
+      const trigger of
+      filterTriggers
+    ) {
+      expect(
+        trigger.querySelector(
+          ".dashboard-filter-trigger__badge",
+        ),
+      ).toHaveTextContent("1");
+    }
   });
 
   it("passes a changed cycle to Overview data while preserving applied organization filters", () => {
@@ -302,13 +343,6 @@ describe("OverviewPage MTD cycle states", () => {
       cycleKey: 202608,
       filters: allFilters,
     });
-    expect(
-      hookMocks
-        .useOverviewFilterOptions,
-    ).toHaveBeenLastCalledWith(
-      selectedFilters,
-    );
-
     setPageHookResults({
       appliedFilters:
         selectedFilters,
@@ -367,7 +401,7 @@ describe("OverviewPage MTD cycle states", () => {
     const nextButtons = screen.getAllByRole(
       "button",
       {
-        name: "Chu kỳ sau",
+        name: "Kỳ báo cáo sau",
         hidden: true,
       },
     );
@@ -406,7 +440,7 @@ describe("OverviewPage MTD cycle states", () => {
     for (
       const navigator of
       screen.getAllByLabelText(
-        "Điều hướng chu kỳ MTD",
+        "Điều hướng ngày báo cáo",
       )
     ) {
       expect(navigator).toHaveTextContent(
@@ -436,7 +470,7 @@ describe("OverviewPage MTD cycle states", () => {
     for (
       const navigator of
       screen.getAllByLabelText(
-        "Điều hướng chu kỳ MTD",
+        "Điều hướng ngày báo cáo",
       )
     ) {
       expect(navigator).toHaveTextContent("MTD:");

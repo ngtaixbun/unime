@@ -53,7 +53,10 @@ export function TeamEmployeeDetailsSheet() {
         </div>
         <div className="team-employee-kpis">
           <div><span>KPI</span><span>Actual</span><span>Target</span><span>%</span></div>
-          {TEAM_METRICS.map((item) => <div key={item.key}><span>{item.name}</span><span>{formatTeamNumber(row[item.actual])}</span><span>{formatTeamNumber(row[item.target])}</span><b className={row[item.pct] < TEAM_THRESHOLD ? "is-risk" : "is-ok"}>{formatTeamPercentage(row[item.pct])}</b></div>)}
+          {TEAM_METRICS.map((item) => {
+            const value = row[item.pct];
+            return <div key={item.key}><span>{item.name}</span><span>{formatTeamNumber(row[item.actual])}</span><span>{formatTeamNumber(row[item.target])}</span><b className={value !== null && value < TEAM_THRESHOLD ? "is-risk" : "is-ok"}>{formatTeamPercentage(value)}</b></div>;
+          })}
         </div>
         <div className="team-employee-kpi-tabs" role="tablist" aria-label="KPI nhân viên">
           {TEAM_METRICS.map((item) => <button key={item.key} type="button" role="tab" aria-selected={metric.key === item.key} className={metric.key === item.key ? "is-active" : ""} onClick={() => team.setEmployeeMetric(item.key)}>{item.name}</button>)}

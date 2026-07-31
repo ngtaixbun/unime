@@ -1,43 +1,31 @@
-import { LogOut, SlidersHorizontal } from "lucide-react";
-import type { ReactNode, Ref } from "react";
+import { LogOut } from "lucide-react";
+import type { Ref } from "react";
 
 import logoUrl from "@/assets/unilever-logo.png";
 
+import {
+  DateNavigator,
+  type DateNavigatorProps,
+} from "./DateNavigator";
+import { HeaderFilterTrigger } from "./HeaderFilterTrigger";
 import "./dashboard-header.css";
 
 interface DashboardHeaderProps {
   title?: string;
   cycleLabel?: string;
-  dateNavigator: ReactNode;
+  dateNavigator: DateNavigatorProps;
   appliedFilterCount: number;
   actionRowRef?: Ref<HTMLDivElement>;
-  onLogout: () => void;
+  backAriaLabel?: string;
+  sticky?: boolean;
+  onBack: () => void;
   onOpenFilters: () => void;
 }
 
 interface DashboardCompactHeaderProps {
-  dateNavigator: ReactNode;
+  dateNavigator: DateNavigatorProps;
   appliedFilterCount: number;
   onOpenFilters: () => void;
-}
-
-function HeaderFilterButton({
-  appliedFilterCount,
-  onOpenFilters,
-}: Pick<DashboardHeaderProps, "appliedFilterCount" | "onOpenFilters">) {
-  return (
-    <button
-      className={`headerFilterBtn ${appliedFilterCount > 0 ? "filtered" : ""}`}
-      type="button"
-      onClick={onOpenFilters}
-      aria-label="Mở bộ lọc"
-    >
-      <span className="filterNavSvg"><SlidersHorizontal /></span>
-      <span className="filterNavBadge" hidden={appliedFilterCount === 0}>
-        {appliedFilterCount}
-      </span>
-    </button>
-  );
 }
 
 export function DashboardHeader({
@@ -46,37 +34,51 @@ export function DashboardHeader({
   dateNavigator,
   appliedFilterCount,
   actionRowRef,
-  onLogout,
+  backAriaLabel = "Quay lại",
+  sticky = false,
+  onBack,
   onOpenFilters,
 }: DashboardHeaderProps) {
   return (
-    <div className="nwUnifiedHeader overviewUnifiedHeader dashboardUnifiedHeader overviewFullHeader">
+    <header
+      className="dashboard-header overviewFullHeader"
+      data-sticky={sticky ? "true" : "false"}
+    >
       <div aria-label="Phạm vi báo cáo và chu kì" className="nwHeaderTitleRow nwHeaderIdentityRow">
         <div aria-hidden="true" className="nwHeaderBrand"><img alt="Unilever" src={logoUrl} /></div>
-        <h1 className="nwHeaderTitle">{title}</h1>
+        <div className="dashboard-header__heading">
+          <h1 className="nwHeaderTitle">{title}</h1>
+          <p
+            className="nwHeaderCycle"
+            data-empty={cycleLabel ? "false" : "true"}
+            aria-hidden={cycleLabel ? undefined : true}
+          >
+            {cycleLabel || "\u00a0"}
+          </p>
+        </div>
         <button
-          className="nwHeaderLogoutBtn"
+          className="nwHeaderBackBtn"
           type="button"
-          onClick={onLogout}
-          aria-label="Đăng xuất"
+          onClick={onBack}
+          aria-label={backAriaLabel}
         >
-          <LogOut className="headerIconSvg" />
+          <LogOut aria-hidden="true" />
         </button>
-        {cycleLabel ? <p className="nwHeaderCycle">{cycleLabel}</p> : null}
       </div>
       <div className="screenHeader">
         <div className="toprow nwHeaderControlsRow" ref={actionRowRef}>
-          <div
-            className="overviewFullHeaderDateSlot"
-          >
-            {dateNavigator}
+          <div className="overviewFullHeaderDateSlot">
+            <DateNavigator {...dateNavigator} />
           </div>
           <div className="overviewFullHeaderFilterSlot">
-            <HeaderFilterButton appliedFilterCount={appliedFilterCount} onOpenFilters={onOpenFilters} />
+            <HeaderFilterTrigger
+              appliedFilterCount={appliedFilterCount}
+              onOpen={onOpenFilters}
+            />
           </div>
         </div>
       </div>
-    </div>
+    </header>
   );
 }
 
@@ -88,10 +90,12 @@ export function DashboardCompactHeader({
   return (
     <div className="overviewCompactHeader" aria-label="Điều khiển báo cáo cố định">
       <div className="overviewCompactHeaderDate">
-        {dateNavigator}
+        <DateNavigator {...dateNavigator} />
       </div>
-      <HeaderFilterButton appliedFilterCount={appliedFilterCount} onOpenFilters={onOpenFilters} />
+      <HeaderFilterTrigger
+        appliedFilterCount={appliedFilterCount}
+        onOpen={onOpenFilters}
+      />
     </div>
   );
 }
-

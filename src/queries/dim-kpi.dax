@@ -1,0 +1,2 @@
+EVALUATE
+SELECTCOLUMNS('KPIname', "kpiname", 'KPIname'[KPI], "kpi_id", 'KPIname'[num])

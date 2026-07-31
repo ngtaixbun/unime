@@ -13,6 +13,36 @@ const uuidSchema = z
     "Giá trị phải là UUID hợp lệ.",
   );
 
+export function resolveGenericDaxEnabled(
+  configured:
+    "true" |
+    "false" |
+    undefined,
+  nodeEnv:
+    "development" |
+    "test" |
+    "production",
+): boolean {
+  if (
+    nodeEnv === "production" &&
+    configured === "true"
+  ) {
+    throw new Error(
+      "GENERIC_DAX_ENABLED=true không được phép ở production trước khi có inbound authentication.",
+    );
+  }
+
+  if (
+    configured === undefined
+  ) {
+    return nodeEnv !==
+      "production";
+  }
+
+  return configured ===
+    "true";
+}
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum([
@@ -49,10 +79,33 @@ const envSchema = z.object({
     .max(120000)
     .default(60000),
 
+  GENERIC_DAX_ENABLED: z
+    .enum([
+      "true",
+      "false",
+    ])
+    .optional(),
+
+  DAX_MAX_LENGTH_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1024)
+    .max(512_000)
+    .default(64_000),
+
+  DAX_MAX_EXPECTED_COLUMNS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(512)
+    .default(128),
+
   CORS_ORIGINS: z
     .string()
     .min(1)
-    .default("http://localhost:5173"),
+    .default(
+      "http://localhost:5173,http://localhost:5174",
+    ),
 });
 
 const parsed =
@@ -72,6 +125,12 @@ if (!parsed.success) {
 
 export const env = Object.freeze({
   ...parsed.data,
+
+  enableGenericDax:
+    resolveGenericDaxEnabled(
+      parsed.data.GENERIC_DAX_ENABLED,
+      parsed.data.NODE_ENV,
+    ),
 
   corsOrigins:
     parsed.data.CORS_ORIGINS

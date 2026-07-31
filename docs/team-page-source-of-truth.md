@@ -1,274 +1,480 @@
 # Team page source of truth
 
-## Phạm vi và source cuối
+## Runtime source and routes
 
-Team được migrate từ file root `team.html` do người dùng cung cấp. Đây là file Team mới nhất và duy nhất được tìm thấy trong project tại thời điểm audit. File chứa hai screen `teamOverview` và `riskDetail`, CSS độc lập, JavaScript imperative, logo base64 và JSON `team-data`.
+The Team KPI overview chart and table are backed by the Power BI Semantic
+Model. The column chart always uses Region data from `dim-region`. The tabs
+below the chart switch only the table: Region uses `dim-region`; AMM uses
+`dim-amm`. Both entity sources use the existing `overview-kpi-summary`
+contract.
 
-Sau migration, `team.html` đã bị xóa khỏi runtime để Vite không ưu tiên file tĩnh này cho URL `/team`. Dữ liệu JSON trong source đã được trích nguyên vẹn sang `src/feature/team/data/team.raw.json` và được kiểm tra serialize khớp source:
+The remaining Team Risk, employee details and four Team Details tabs
+(`Rớt chuỗi nhiều ngày`, `Rớt nhiều KPI`, `Xem theo Quản lý`, `Theo NPP`)
+remain backed by the exact user-provided dataset migrated to
+`src/feature/team/data/team.raw.json`. The `Xem theo KPI` tab is excluded from
+that legacy boundary and is documented below.
 
-- 1.800 dòng dữ liệu.
-- 180 nhân viên.
-- 10 ngày từ 01/06/2026 đến 10/06/2026.
-- 5 KPI: `calls`, `beat`, `time`, `osa`, `qc`.
-- Threshold rớt KPI: 80%.
+- 1,800 daily rows.
+- 180 unique employees.
+- 10 report dates from 2026-06-01 through 2026-06-10.
+- Five metrics: Calls, Beat, Time Spend, OSA and QC.
+- Risk threshold: strictly below 90%.
 
-`team.raw.json` hiện là data source thực tế của migration. `team.queries.ts` là read-only adapter để có thể thay bằng query backend đã kiểm chứng sau này mà không đổi consumer.
+`src/feature/team/queries/team.queries.ts` is the read-only boundary for
+those remaining legacy sections. It is not the source for KPI overview
+Region or AMM entities. No backup file is imported into the runtime graph.
 
-## Cấu trúc feature
-
-```text
-src/feature/team/
-├── assets/styles/
-│   ├── team.css
-│   └── team-details.css
-├── components/
-│   ├── details/
-│   │   ├── TeamByKpiPanel.tsx
-│   │   ├── TeamDetailsTabs.tsx
-│   │   ├── TeamEmployeeCard.tsx
-│   │   ├── TeamEmployeeRow.tsx
-│   │   ├── TeamManagerPanel.tsx
-│   │   ├── TeamMultiKpiPanel.tsx
-│   │   ├── TeamNppPanel.tsx
-│   │   └── TeamStreakPanel.tsx
-│   ├── employee/TeamEmployeeDetailsSheet.tsx
-│   ├── filters/TeamFilterSheet.tsx
-│   ├── overview/
-│   │   ├── TeamKpiSection.tsx
-│   │   └── TeamRiskOverview.tsx
-│   └── index.ts
-├── data/
-│   ├── index.ts
-│   ├── team.data.ts
-│   └── team.raw.json
-├── hooks/
-│   ├── index.ts
-│   └── useTeamState.tsx
-├── lib/
-│   ├── index.ts
-│   ├── team.aggregations.spec.ts
-│   ├── team.aggregations.ts
-│   ├── team.constants.ts
-│   ├── team.formatters.ts
-│   └── team.selectors.ts
-├── pages/
-│   ├── TeamDetails.tsx
-│   └── TeamPage.tsx
-├── queries/
-│   ├── index.ts
-│   └── team.queries.ts
-├── types/
-│   ├── index.ts
-│   └── team.ts
-└── index.ts
-```
-
-## Page và component ownership
-
-### TeamPage
-
-`TeamPage` chỉ điều phối state riêng của overview (`selectedMetric`, `selectedLevel`, `selectedEntity`), gọi `useTeamOverview`, ghép header/KPI/risk sections và map entry point sang URL TeamDetails.
-
-- `TeamKpiSection` sở hữu 5 KPI tabs, bar chart, target 80%, selection/dim state rendering, 2 level tabs và entity table.
-- `TeamRiskOverview` sở hữu histogram, top KPI, max streak, 3 risk groups, top SUP/NPP và drill-down mapping.
-- `DashboardHeader` là shared component tại `src/components/dashboard-header`; Team truyền `DateNavigator` riêng qua ReactNode slot.
-- `BottomNavigation` là shared component tại `src/components`; active route là Team.
-
-### TeamDetails
-
-`TeamDetails` sở hữu detail header, tab/search-param orchestration, back navigation và chọn panel đang render. Title thực tế là `Chi tiết Đội ngũ`.
-
-- `TeamByKpiPanel`: metric order theo average tăng dần, chỉ hiển thị nhân viên rớt và sort KPI% tăng dần.
-- `TeamStreakPanel`: streak liên tiếp đến report date, tối thiểu 2 ngày, sort streak giảm dần rồi KPI% tăng dần.
-- `TeamMultiKpiPanel`: nhóm high/watch/safe, max lần lượt 5/2/0 KPI, every-selected-metric filter và toast khi vượt giới hạn.
-- `TeamManagerPanel`: Region → AMM → Mer Sup → nhân viên, risk employee only.
-- `TeamNppPanel`: aggregate OSA actual/target, unique employee count, sort tỷ lệ tăng dần.
-
-### Overlay ownership
-
-- `TeamFilterSheet` thuộc feature Team, có draft/apply/reset, dependent options, Escape/backdrop/close button và dialog semantics.
-- `TeamEmployeeDetailsSheet` là overlay, không phải page. Nó sở hữu metadata, bảng 5 KPI, KPI tabs, trend 7 ngày, selected date, delta, missing state, mood và internal scroll.
-- Cả hai overlay được mount ngoài content flow nhưng bên trong viewport của shared App Shell.
-
-## Hook, data, query và pure logic ownership
-
-- `TeamProvider` trong `useTeamState.tsx` là shared state owner cho TeamPage và TeamDetails.
-- `useTeamOverview` tạo overview view model.
-- `useTeamDetails` cung cấp rows/report context cho detail panels.
-- `useTeamEmployeeDetails` tạo selected row và trend view model.
-- `team.data.ts` typed-import dữ liệu raw.
-- `team.queries.ts` là adapter read-only hiện tại.
-- `team.constants.ts` sở hữu metric definitions, threshold, region order, risk copy và chart scale.
-- `team.selectors.ts` sở hữu date/filter/group/options/index selectors.
-- `team.aggregations.ts` sở hữu average, fail/risk, entity stats, multi KPI, streak, SUP/NPP, trend/delta và sort.
-- `team.formatters.ts` sở hữu percent/number/date/signed-delta formatting.
-
-Pure lib không đọc DOM, không render JSX và không dùng React state.
-
-## Route hierarchy và URL state
-
-Router hiện tại là History API router nhỏ trong `src/App.tsx`; project không có `react-router-dom`.
+The History API router in `src/App.tsx` owns these routes:
 
 ```text
-/
-└── OverviewPage
-/team
-└── TeamPage
-/team/details
-└── TeamDetails
+/                 OverviewPage
+/team             TeamPage
+/team/details     TeamDetails
 ```
 
-Detail context dùng search params:
+`TeamProvider` wraps the route switch, so Team overview and detail views use
+one in-memory state instance. URL params make the report context restorable
+after direct navigation or refresh.
 
-- `?tab=by-kpi&metric=qc`
-- `?tab=streak&metric=qc`
-- `?tab=multi&group=high|watch|safe`
-- `?tab=manager`
-- `?tab=npp`
+## Shared component ownership
 
-Đổi tab/metric/group dùng `history.replaceState`. Route-level navigation dùng `pushState` và App lắng nghe `popstate`.
+Overview and Team use the same runtime implementations:
 
-## Shared state ownership
+| Concern | Source of truth |
+| --- | --- |
+| Header | `src/components/dashboard-header/DashboardHeader.tsx` |
+| Date Navigator | `src/components/dashboard-header/DateNavigator.tsx` |
+| Filter Trigger | `src/components/dashboard-header/HeaderFilterTrigger.tsx` |
+| Organization Filter | `src/components/organization-filter` |
+| Period Mode | `src/components/report-period/ReportPeriodMode.tsx` |
+| Bottom Navigation | `src/components/BottomNavigation.tsx` |
 
-`TeamProvider` được mount quanh route switch trong `App.tsx`, nên state không bị tách giữa hai page:
+The Header receives data/callback props only. It owns logo, title, the
+always-present optional cycle slot, Back control, shared Date Navigator and
+shared Filter Trigger. Overview enables its separate compact-header host;
+Team opts into the shared full-header sticky modifier.
 
-- `dateIndex` / `reportDate`.
-- applied `filters`.
-- `draftFilters`.
-- filter sheet open state.
-- employee code/metric/selected date/open state.
+Team passes:
 
-State riêng của TeamPage: selected KPI, level và entity. State riêng của TeamDetails: active tab, detail/streak metric, multi group và selected metrics.
+- title `Đội ngũ`;
+- `TEAM_DATA.meta.cycle` as the visible cycle;
+- Team report context to Date Navigator;
+- Team filter count/open callback;
+- Back to Overview.
 
-## DOM, App Shell và scroll
+Overview passes the same DOM contract but leaves the cycle slot semantically
+empty. There is no Overview-specific alignment rule.
 
-DOM runtime:
+The Header opens the shared Region → AMM → Supervisor sheet. Overview and
+Team use one provider, one encoded applied/draft state and one semantic
+option query implementation. See
+`docs/organization-filter-source-of-truth.md`.
+
+## Shared period contract
+
+The only report-period type is:
+
+```ts
+type ReportPeriod = "today" | "7days" | "mtd";
+```
+
+It is owned by `src/lib/report-period.ts`, together with pure utilities for:
+
+- period labels;
+- Today, seven-calendar-day and month-to-date ranges;
+- range formatting;
+- available-date selection;
+- previous/next date lookup;
+- boundary clamping;
+- legacy `seven-days` URL normalization.
+
+`src/hooks/use-report-period.ts` is the shared state contract. Both the
+Overview semantic-cycle adapter and TeamProvider use it.
+
+Period meaning:
+
+| Mode | Range |
+| --- | --- |
+| Today | anchor date only |
+| 7 Ngày | anchor minus six calendar days through anchor |
+| MTD | first calendar day of the anchor month through anchor |
+
+Date Navigator changes the anchor by one available report date. Period Mode
+changes the range and aggregation without changing the anchor.
+
+Overview keeps its verified availability rule: MTD is enabled; Today and
+7 Ngày still show the existing unavailable-feature message. A disabled
+Overview URL period is normalized back to MTD. Moving to an older Overview
+cycle does not auto-switch period.
+
+## Team report state
+
+`TeamProvider` in `src/feature/team/hooks/useTeamState.tsx` owns:
+
+- `period`;
+- `reportDate` / anchor and available-date index;
+- selected report dates and formatted range;
+- previous/next bounds and callbacks;
+- selected Team KPI, table entity level and selected Region chart entity;
+- employee-sheet context.
+
+Organization state is not owned by `TeamProvider`. It consumes shared applied
+state only to derive the documented adapter for the remaining legacy Team
+sections.
+
+TeamPage renders Period Mode directly below Header and above the KPI
+overview. Semantic query rows feed:
+
+- Region rows always feed the column chart and employee-count badge;
+- Region rows feed the table when the Region tab is active;
+- AMM rows feed only the table when the AMM tab is active.
+
+The local `currentRows` view model feeds only:
+
+- risk histogram and groups;
+- top KPI/SUP/NPP cards;
+- the four not-yet-migrated TeamDetails panels: streak, multi-KPI, manager
+  and NPP.
+
+The remaining local sections are synchronous. The semantic KPI overview has
+isolated loading, error and retry states and never falls back to local rows.
+
+## TeamDetails / Xem theo KPI employee source
+
+`TeamDetails` tab `Xem theo KPI` uses one employee-grain Semantic Model query:
 
 ```text
-.team-page hoặc .team-details
-└── .app-shell
-    └── .app-shell__viewport.phone
-        ├── main#app.app-shell__scroll.app   ← scroll owner duy nhất
-        ├── shared BottomNavigation          ← TeamPage only
-        └── filter/employee overlays         ← ngoài content scroll
+dim-kpi (KPI identity and label)
+  + dimnv employee identity
+  + [Actual KPI Selected]
+  + [Target KPI Selected]
+  + [MTD KPI Selected]
+  → team-employee-kpi
+  → useTeamEmployeeKpiData
+  → TeamByKpiPanel
 ```
 
-`AppShell` tại `src/components/AppShell.tsx` là frame dùng chung giữa Overview và Team. `main#app` là scroll owner duy nhất; `body` bị khóa scroll. Team không tạo phone frame, bottom nav hoặc scroll system riêng.
+The query returns all matching employees in one table. It does not execute
+`kpimtd` once per employee and it does not query employee `nvFail` or status.
+The exact output aliases are:
 
-TeamDetails tabs sticky theo chính `main#app`. TeamDetails không render Bottom Navigation.
+```text
+employeeId, employeeLabel, regionId, ammId, supervisorId,
+actual, target, percentage
+```
 
-## Header và Bottom Navigation
+Employee identity comes from `dimnv`; KPI identity and the selector label come
+from `dim-kpi`. Every request contains the selected `cycleKey`, `kpiId` and
+the exact encoded `region`, `amm`, and `supervisor` filters. Region and AMM
+route drill-down values are IDs, not display labels, and are passed unchanged
+to the DAX `TREATAS` filters.
 
-`DashboardHeader` đã được generic hóa: title, cycle label, filter badge và Date Navigator slot đều qua props. Team sở hữu date prefix/value, disabled date boundaries và previous/next callbacks trong `src/feature/team/components/DateNavigator.tsx`; shared header không phụ thuộc type/helper/component của Overview hoặc Team.
+The frontend derives employee status only from Semantic `percentage` with the
+strict 90% threshold:
 
-`BottomNavigation` được nâng từ `feature/overview` lên `src/components`. Overview cập nhật sang shared nav; Team không còn toast unavailable và route `/team` hoạt động.
+```text
+percentage < 0.9  → fail
+percentage >= 0.9 → pass
+percentage BLANK  → no-data
+```
 
-## Filter flow
+`actual`, `target`, and `percentage` are displayed from their Semantic measure
+outputs; the frontend does not recalculate `percentage` from actual/target.
+Only `fail` rows are listed, sorted by percentage, employee label, then
+employee ID. Loading, query/schema error with retry, and empty-result states
+are isolated to the panel. There is no fallback to `team.raw.json`,
+`team.currentRows`, or any hardcoded employee list. The row is intentionally
+non-interactive in this migration phase because the existing employee detail
+sheet still reads legacy data and would show an incorrect employee/KPI source.
 
-1. Mở sheet copy applied filters sang draft.
-2. Đổi Region reset AMM và Mer Sup.
-3. Đổi AMM reset Mer Sup.
-4. Options AMM/Mer Sup được derive từ current-date rows và draft parent filters.
-5. `Áp dụng` normalize option không còn hợp lệ, cập nhật applied filters và đóng sheet.
-6. `Xóa lọc` trả 3 field về `all` và đóng sheet.
-7. Filter badge đếm 1–3 field khác `all`.
-8. Cùng applied filters tác động TeamPage, TeamDetails và streak lịch sử.
+This migration does **not** apply to `Rớt chuỗi nhiều ngày`, `Rớt nhiều KPI`,
+`Xem theo Quản lý`, or `Theo NPP`; those tabs retain the legacy source until a
+Semantic query with their required grain is implemented.
 
-## Date flow
+## Team KPI tab dimension
 
-- Date list lấy từ data meta.
-- Mặc định ngày mới nhất 10/06/2026.
-- Prev/next clamp tại hai biên; button biên bị disabled/ẩn.
-- Đổi date cập nhật toàn Team view model.
-- Entity selection không còn hợp lệ được loại khỏi effective selection.
-- Employee trend vẫn đọc toàn bộ multi-day dataset.
+The Team overview KPI tabs are sourced from the Power BI Semantic Model. The
+runtime ownership chain is:
 
-## TeamPage → TeamDetails và back
+```text
+'KPIname'[KPI], 'KPIname'[num]
+→ src/queries/dim-kpi.dax
+→ src/queries/dim-kpi.ts
+→ direct Fabric query or backend queryId "dim-kpi"
+→ useTeamKpiDimension
+→ TeamPage
+→ TeamKpiSection tabs and Region chart title
+```
 
-Drill-down mapping:
+The query aliases are `kpiname` and `kpi_id`; the frontend receives exact
+column names `[kpiname]` and `[kpi_id]`. Valid IDs are sorted ascending and
+adapted to the existing Team state:
 
-- KPI rớt nhiều → `by-kpi` + top metric.
-- Rớt chuỗi nhiều ngày → `streak` + max-streak metric.
-- High/watch/safe → `multi` + group.
-- SUP → `manager`.
-- NPP → `npp`.
+```text
+1 → calls
+2 → beat
+3 → time
+4 → osa
+5 → qc
+```
 
-Back button từ TeamDetails gọi route `/team`. Vì `TeamProvider` ở trên route switch, date/applied filters/employee source vẫn giữ. Browser diagnostic xác nhận filter badge còn nguyên sau back.
+Blank/invalid/unmapped rows are ignored. A duplicate valid `kpi_id` is an
+integrity error, not a de-duplication rule. Loading, error/retry and empty
+states are isolated to the tab region. There is no hardcoded production tab
+fallback.
+
+The selected `TeamMetricKey` resolves the Semantic `kpiId` used by both the
+Region and AMM KPI requests. It continues to drive the remaining local risk
+views and employee details. The full dimension contract is in
+`docs/team-kpi-dimension-semantic-source-of-truth.md`.
+
+## Team KPI entity sources
+
+The entity data flow is:
+
+```text
+Chart, badge and Region table:
+  dim-region → one overview-kpi-summary request per visible Region
+
+AMM table while the AMM tab is active:
+  dim-amm → one overview-kpi-summary request per visible AMM
+```
+
+Both paths reuse `src/queries/kpimtd.ts` and backend queryId
+`overview-kpi-summary`; no Team-specific KPI DAX query exists. Every request
+contains `cycleKey`, `kpiId`, `region`, `amm` and `supervisor`.
+
+`TeamPage` keeps the Region source enabled because the chart and badge never
+change with the table tab. The AMM source is enabled only while the AMM tab
+is active. Switching tabs preserves the cycle, KPI, selected Region chart
+entity and shared applied Region/AMM/Supervisor filters.
+
+Chart and table state are intentionally independent:
+
+- the chart uses Region rows, loading, error and retry only;
+- the employee-count badge uses the Region total only;
+- the Region table uses Region rows, loading, error and retry;
+- the AMM table uses AMM rows, loading, error and retry;
+- AMM loading or failure never blanks or replaces a successful Region chart;
+- Region chart failure does not prevent a successful AMM table from
+  rendering.
+
+The shared applied Region/AMM/Supervisor filters still feed both sources.
+A selected AMM or Supervisor therefore changes the Region aggregates shown
+in the chart as well as the applicable AMM table queries.
+
+AMM identity comes only from `[ammId]` returned by `dim-amm`.
+`encodeDimensionValue(ammId)` produces the query/filter identity; the
+Semantic `[ammLabel]` is display-only. `[regionId]` is also encoded and is
+used for the per-AMM Region request when the shared Region filter is `all`.
+Duplicate AMM IDs are an integrity error. Invalid IDs or labels are omitted.
+No Team mock AMM option list or legacy hierarchy row is used by the KPI
+overview.
+
+AMM requests are dynamic rather than fixed to four slots. The hook renders
+one keyed query-item component per visible AMM; each item owns one stable
+query hook. A collection generation includes cycle, KPI, all shared filters
+and the visible AMM IDs, so stale responses from a previous generation are
+not aggregated.
+
+After all visible entity rows resolve, the frontend normalizes:
+
+```text
+contributionNv     = countNv / sum(visible countNv)
+contributionNvFail = nvFail / sum(visible nvFail)
+```
+
+The same normalization applies to Region and AMM without changing the
+existing Region results. A single positive visible entity has contribution
+`1`; a zero total or null numerator produces `null`. The chart always renders
+normalized Region rows. The table renders normalized Region or AMM rows
+according to the selected table tab.
+
+## Team period aggregation
+
+The aggregation pipeline is:
+
+```text
+available daily rows
+→ select Today / 7 Ngày / MTD dates
+→ apply Team hierarchy filters
+→ group by unique empCode
+→ sum actual and target for each metric
+→ percentage = aggregate actual / aggregate target
+→ classify employee risk from recalculated percentages
+→ aggregate the remaining local risk/detail views
+```
+
+`aggregateTeamEmployeeRows()` creates exactly one row per employee. The
+latest row in the range supplies descriptive hierarchy fields; metric
+actual/target values are summed. A non-positive target produces `null`.
+
+Entity percentages also use the group's aggregate actual divided by aggregate
+target. They are not averages of daily percentages. Headcount, fail count and
+risk groups therefore count an employee once per report range.
+
+Risk logic:
+
+- each employee's five period percentages are compared with 90%;
+- 0 failed metrics → safe;
+- 1–2 → watch;
+- 3–5 → high;
+- histogram/top KPI/SUP use those aggregate employee rows;
+- the separate “consecutive-day streak” insight intentionally continues to
+  scan daily history ending at the same anchor date.
+
+The migrated source's daily percentage fields are not numerically equal to
+`actual / target` for every metric, especially Time Spend. No verified
+alternative multi-day business formula exists in the project. The period
+implementation therefore follows the required aggregate-actual/target
+contract explicitly rather than averaging those daily percentages.
+
+## URL and navigation state
+
+Canonical Team report params:
+
+```text
+period=today|7days|mtd
+date=YYYY-MM-DD
+region=<value>
+amm=<value>
+supervisor=<encoded-id|all>
+teamMetric=calls|beat|time|osa|qc
+level=region|amm
+entity=<selected-entity-encoded-id>
+```
+
+TeamDetails adds:
+
+```text
+tab=by-kpi|streak|multi|manager|npp
+metric=<metric>
+group=high|watch|safe
+```
+
+`TeamProvider.createRouteSearchParams()` is the only serializer.
+`hydrateFromSearchParams()` is the corresponding adapter. TeamDetails tab
+changes start from the canonical params and never discard period/date/filter
+context.
+
+Back behavior:
+
+- Team Header → Overview, carrying period/date. Overview applies its own
+  availability and semantic-cycle boundaries.
+- TeamPage → TeamDetails carries period/date/filters and selected overview
+  state.
+- TeamDetails → TeamPage restores the same context.
+- Overview Header Back remains a local toast:
+  `Landing chưa được triển khai`.
+
+## App Shell, scrolling and overlays
+
+```text
+.app-shell
+└── .app-shell__viewport.phone
+    ├── main#app.app-shell__scroll.app   ← only content scroll owner
+    ├── shared BottomNavigation
+    └── feature overlays
+```
+
+Header and Period Mode are inside the content scroll. Bottom Navigation, the
+shared Organization Filter Sheet and Employee Sheet remain siblings outside
+it. No nested page scroll was introduced.
 
 ## CSS source of truth
 
-- Global semantic tokens: `src/global.css`.
-- Shared shell/nav: `src/global.css` + `src/components`.
-- Team overview/filter/employee: `team.css`, scoped dưới `.team-page`/`.team-details`.
-- Team detail panels: `team-details.css`, scoped dưới `.team-details`.
-- Không có `:root` riêng, `!important`, base64, global `.card/.list/.sheet` selector hoặc CSS override patch.
-- Icons dùng Lucide, không dùng emoji/text symbols của legacy source.
+- global tokens, App Shell and Bottom Navigation:
+  `src/global.css`;
+- Header, Date Navigator and Filter Trigger:
+  `src/components/dashboard-header/dashboard-header.css`;
+- Period Mode:
+  `src/components/report-period/report-period-mode.css`;
+- Organization Filter:
+  `src/components/organization-filter/organization-filter.css`;
+- Team-only cards, chart, lists and sheets:
+  `src/feature/team/assets/styles/team.css`;
+- TeamDetails-only panels:
+  `src/feature/team/assets/styles/team-details.css`.
 
-## Legacy đã loại bỏ
+Feature CSS contains no selectors for the shared Header, Date Navigator,
+Filter Trigger, Period Mode or Bottom Navigation. There is no `!important`
+override.
 
-- Xóa root `team.html` sau khi trích data; nếu giữ file này, Vite sẽ phục vụ nó thay vì React route `/team`.
-- Xóa `src/feature/overview/components/BottomNavigation.tsx` sau khi nâng component lên shared.
-- Không còn runtime `innerHTML`, `querySelector`, document event delegation, mutable global state, `dangerouslySetInnerHTML`, show/hide section giả route, base64 logo hoặc duplicate Team shell/nav.
+## Removed legacy implementations
 
-## File tạo mới
+- `src/feature/overview/components/DateNavigator.tsx`;
+- `src/feature/team/components/DateNavigator.tsx`;
+- `src/feature/overview/components/PeriodTabs.tsx`;
+- `src/feature/overview/components/FilterSheet.tsx`;
+- `src/feature/overview/hooks/useOverviewFilters.ts`;
+- `src/feature/overview/hooks/useOverviewFilterOptions.ts`;
+- `src/feature/team/components/filters/TeamFilterSheet.tsx`;
+- their feature-owned `.mtd*`, `.overviewPeriodBelow`,
+  `.memv2-period-btn` and orphan `.memv2-nav-btn` CSS.
 
-- Toàn bộ `src/feature/team/**` trong tree phía trên.
-- `src/components/AppShell.tsx`.
-- `src/components/BottomNavigation.tsx`.
-- `src/assets/unilever-logo.png` (brand asset shared, moved from Overview).
-- `docs/team-page-source-of-truth.md`.
+The old brief path `src/components/DashboardHeader.tsx` does not exist. The
+actual shared Header path is `src/components/dashboard-header/DashboardHeader.tsx`.
 
-## File sửa
+## Automated verification
 
-- `src/App.tsx`.
-- `src/components/dashboard-header/`.
-- `src/feature/overview/pages/OverviewPage.tsx`.
-- `src/feature/overview/components/index.ts`.
-- `src/global.css`.
-- `src/queries/index.ts` (sửa duplicate `columnMetadata` export để strict TypeScript pass).
-- `src/fabric.generated.ts` được build script generate lại từ `fabric.yaml`.
-- `src/feature/overview/assets/images/unilever-logo.png` đã được di chuyển lên `src/assets/unilever-logo.png`.
+The co-located test suite covers:
 
-## File xóa
+- Today, seven-day and MTD ranges/labels/navigation/bounds;
+- shared Header/Date Navigator/Period Mode/Bottom Navigation contracts;
+- Overview Back toast and unavailable periods;
+- Team Today/7-day/MTD aggregation;
+- aggregate actual/target recalculation;
+- unique employee count;
+- period + hierarchy filter;
+- aggregate risk classification;
+- TeamPage period-driven Header/chart/list/risk updates;
+- TeamPage → TeamDetails and TeamDetails → Team context preservation.
+- Team KPI query wrapper, backend registration and expected columns;
+- Team KPI parse/sort/duplicate rules and ID-to-mock-key mapping;
+- isolated KPI tab loading/error/retry behavior;
+- TeamPage Semantic Model tab and chart labels;
+- AMM dimension parsing, invalid-row rejection and duplicate-ID rejection;
+- exact encoded Region/AMM matching and Supervisor request propagation;
+- dynamic AMM query collections with more than four AMMs;
+- AMM frontend contribution normalization, including zero and single-row
+  totals;
+- permanent Region chart/badge ownership and level-specific table ownership;
+- independent chart/table loading, error and retry behavior.
 
-- `team.html` (legacy runtime source; data đã migrate nguyên vẹn).
-- `src/feature/overview/components/BottomNavigation.tsx`.
+Verification completed on 2026-07-30:
 
-## Verification
+- `npx tsc -b --pretty false`: passed;
+- targeted Team Vitest: 4 files / 27 tests passed;
+- `npm run lint`: passed;
+- `npm test`: passed, 30 files / 186 tests;
+- `npm run build`: passed; Vite emitted the existing chunk-size warning;
+- authenticated Fabric portal embed loaded the nested app frame;
+- direct Fabric mode rendered four live Regions and ten live AMMs; all AMMs
+  beyond the fourth were retained;
+- switching the table from Region to AMM kept the chart title, four Region
+  names, four Region values and the 1,351-employee Region badge unchanged;
+- only the table changed, from four Region rows to ten live AMM rows;
+- selecting Region `number:1`, AMM `number:8214` and Supervisor `number:8227`
+  produced one visible AMM with 8 employees and both contributions at 100%;
+- the 350, 360, 390 and 430 px app surfaces had no horizontal page overflow;
+  long AMM table labels use the existing row ellipsis;
+- level tabs remained 42 px high, and `main#app` remained the vertical scroll
+  owner;
+- no console error originated from the localhost app. The two recorded
+  resource errors came from Fabric/Power BI hosts; existing mixed-content
+  auto-upgrade warnings for shared image assets remain outside this change.
 
-### Static/build
+<!-- TEAM_REGION_KPI_EXISTING_QUERY_START -->
 
-- `npx tsc -p tsconfig.json --noEmit`: pass.
-- `npm run lint`: pass, không warning/error.
-- `npm run test`: pass, 4 files / 18 tests.
-- `npm run build`: pass. Vite transform 1.954 modules và tạo production bundle.
-- Forbidden-pattern scan trong Team/App/shared components: không có `innerHTML`, DOM query APIs, `dangerouslySetInnerHTML`, `!important` hoặc `data:image`.
+## Team Region KPI using the existing kpimtd query
 
-Domain tests xác nhận exact data size, strict threshold 80%, risk totals, top KPI/SUP/NPP, region order, streak đến report date và trend 7 ngày/delta.
+The Team Region chart and Region table use `dim-region` plus the existing
+one-row `kpimtd` query. The full contract is documented in:
 
-### Runtime diagnostic
+```text
+docs/team-region-kpi-semantic-source-of-truth.md
+```
 
-Headless Chromium diagnostic đã pass:
+No separate Team Region KPI DAX/TS query exists.
 
-- React `/team` route render đúng sau khi xóa legacy HTML conflict.
-- 5 KPI, 2 level, selected/unselected entity.
-- Target line 80% dùng cùng scale với bar; line nằm trên cột 72%.
-- Prev/next date.
-- Dependent Region → AMM → Mer Sup filters và badge.
-- `/team/details`, title, 5 tabs, Bottom Navigation hidden.
-- Multi KPI groups, limit và toast.
-- Manager hierarchy và NPP view.
-- Employee sheet, 7 trend points và selected date.
-- Back giữ applied filter.
-- Không console/page error.
-- 350/360/390/430px: không document horizontal overflow, title visible, chart cao 224px và card padding 12px.
-
-### Fabric portal embed
-
-Flow chuẩn đã được thử với `devUri=http://localhost:5176`. Portal mở tại `app.fabric.microsoft.com`, không có LNA/chrome-error frame, nhưng persistent automation profile chưa có AAD session nên innermost app iframe không mount. Không tự động hóa đăng nhập theo quy định. Vì vậy Fabric-authenticated embed vẫn cần một lượt xác nhận thủ công sau khi người dùng đăng nhập profile.
-
-## Giới hạn còn lại
-
-- Team hiện dùng exact dataset được người dùng cung cấp trong HTML, chưa nối semantic model. Query adapter đã được đặt boundary để thay data source sau khi có DAX/schema được kiểm chứng.
-- Production JS bundle khoảng 1,2 MB trước gzip do 1.800 rows được đóng gói; build thành công nhưng Vite báo chunk trên 500 kB. Khi backend Team sẵn sàng nên chuyển dataset sang runtime query và code-split routes.
-- Fabric portal runtime cần AAD-authenticated persistent profile để hoàn tất xác nhận embed cuối.
+<!-- TEAM_REGION_KPI_EXISTING_QUERY_END -->

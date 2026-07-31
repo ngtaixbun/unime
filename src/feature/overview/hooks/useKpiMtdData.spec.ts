@@ -112,6 +112,10 @@ describe("useKpiMtdData", () => {
         kpiMtd({
           cycleKey: 202608,
         }).query,
+      columnMetadata:
+        kpiMtd({
+          cycleKey: 202608,
+        }).columnMetadata,
       backendRequest: {
         queryId:
           "overview-kpi-summary",

@@ -1,22 +1,14 @@
 import type {
   NavigationItem,
-  OverviewFilters,
-  OverviewPeriod,
 } from "../types";
+import type { ReportPeriod } from "@/lib/report-period";
 
 export const OVERVIEW_PERIODS:
-  OverviewPeriod[] = [
+  ReportPeriod[] = [
     "today",
-    "seven-days",
+    "7days",
     "mtd",
   ];
-
-export const DEFAULT_OVERVIEW_FILTERS:
-  OverviewFilters = {
-    region: "all",
-    amm: "all",
-    supervisor: "all",
-  };
 
 export const NAVIGATION_ITEMS:
   NavigationItem[] = [
@@ -51,9 +43,9 @@ export const NAVIGATION_ITEMS:
  * Chỉ chặn việc chuyển mode tại UI.
  */
 export const OVERVIEW_PERIOD_AVAILABILITY:
-  Record<OverviewPeriod, boolean> = {
+  Record<ReportPeriod, boolean> = {
     today: false,
-    "seven-days": false,
+    "7days": false,
     mtd: true,
   };
 
@@ -61,7 +53,7 @@ export const OVERVIEW_PERIOD_UNAVAILABLE_MESSAGE =
   "Chức năng này chưa được triển khai";
 
 export function isOverviewPeriodEnabled(
-  period: OverviewPeriod,
+  period: ReportPeriod,
 ): boolean {
   return OVERVIEW_PERIOD_AVAILABILITY[
     period

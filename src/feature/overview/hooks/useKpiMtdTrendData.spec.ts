@@ -123,6 +123,10 @@ describe(
           kpiMtdTrend({
             cycleKey: 202608,
           }).query,
+        columnMetadata:
+          kpiMtdTrend({
+            cycleKey: 202608,
+          }).columnMetadata,
         backendRequest: {
           queryId:
             "overview-kpi-trend",

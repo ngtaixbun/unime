@@ -1,15 +1,13 @@
 import { Store, UsersRound } from "lucide-react";
 
 import { formatInteger, formatPercent } from "../lib";
-import type {
-  OverviewKpi,
-  OverviewPeriod,
-} from "../types";
+import type { ReportPeriod } from "@/lib/report-period";
+import type { OverviewKpi } from "../types";
 import { Sparkline } from "./Sparkline";
 
 interface KpiRowProps {
   kpi: OverviewKpi;
-  period: OverviewPeriod;
+  period: ReportPeriod;
   onSelect: (kpiId: string) => void;
   selected: boolean;
   variant?: "market" | "team";
@@ -137,7 +135,7 @@ export function KpiRow({
   const sparklineMode =
     period === "mtd"
       ? "mtd"
-      : "seven-days";
+      : "7days";
 
   const previousDelta =
     getPreviousDeltaMeta(kpi);
@@ -297,4 +295,3 @@ export function KpiRow({
     </button>
   );
 }
-

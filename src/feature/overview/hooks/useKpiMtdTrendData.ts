@@ -210,6 +210,9 @@ export function useKpiMtdTrendData(
     query:
       queryConfig?.query ??
       "",
+    columnMetadata:
+      queryConfig
+        ?.columnMetadata,
     backendRequest:
       cycleKey === null
         ? undefined

@@ -22,12 +22,9 @@ export {
   formatTeamSignedPoints,
 } from "./team.formatters";
 export {
-  countAppliedTeamFilters,
+  adaptOrganizationFiltersToLegacyTeamFilters,
   createTeamRowIndex,
   filterTeamRows,
-  findTeamAmmName,
-  findTeamSupName,
-  getTeamFilterSummary,
   getTeamRow,
   groupTeamRowsBy,
   groupTeamRowsByAmm,
@@ -35,7 +32,6 @@ export {
   groupTeamRowsByRegion,
   groupTeamRowsBySup,
   matchesTeamFilters,
-  normalizeTeamFilterDraft,
   selectCurrentTeamRows,
   selectLastTeamDates,
   selectMetricActual,
@@ -45,9 +41,9 @@ export {
   selectRowsByDate,
   selectTeamEmployeeRows,
   selectTeamEntityGroups,
-  selectTeamFilterOptions,
 } from "./team.selectors";
 export {
+  aggregateTeamEmployeeRows,
   averageTeamField,
   averageTeamMetric,
   buildTeamRiskGroups,
@@ -74,7 +70,6 @@ export {
 // Concise domain aliases used by Team view-model hooks and components.
 export {
   filterTeamRows as filterRows,
-  getTeamFilterSummary as filterSummary,
   selectMetricActual as metricActual,
   selectMetricTarget as metricTarget,
   selectMetricValue as metricValue,

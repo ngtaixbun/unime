@@ -6,7 +6,7 @@ import type {
   TeamRiskGroup,
 } from "../types";
 
-export const TEAM_THRESHOLD = 0.8;
+export const TEAM_THRESHOLD = 0.9;
 export const TEAM_CHART_MAX_VALUE = 1.05;
 
 export const TEAM_METRICS = [

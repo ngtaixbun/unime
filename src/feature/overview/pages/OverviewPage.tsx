@@ -8,14 +8,17 @@ import { BottomNavigation,
   type AppNavigationRoute } from "@/components/BottomNavigation";
 import { DashboardCompactHeader,
   DashboardHeader } from "@/components/dashboard-header";
+import {
+  OrganizationFilterSheet,
+  useOrganizationFilters,
+} from "@/components/organization-filter";
+import { ReportPeriodMode } from "@/components/report-period";
+import { normalizeReportPeriod } from "@/lib/report-period";
 
 import "../assets/styles/overview.css";
 import {
   CoverageSection,
-  DateNavigator,
-  FilterSheet,
   KpiTable,
-  PeriodTabs,
   RouteToast,
   SectionHeader,
   } from "../components";
@@ -27,9 +30,6 @@ import { canNavigate,
 import {
   useDimDateData,
   useOverviewData,
-  useOverviewFilterOptions,
-  
-  useOverviewFilters,
   useOverviewPeriod,
 } from "../hooks";
 
@@ -38,6 +38,14 @@ interface OverviewPageProps {
 }
 
 export function OverviewPage({ onNavigate }: OverviewPageProps) {
+  const [initialReportContext] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      period: normalizeReportPeriod(params.get("period")),
+      anchorDate: params.get("date"),
+    };
+  });
+  const requestedInitialPeriod = initialReportContext.period;
   const {
     cycles,
     loading: dimDateLoading,
@@ -54,32 +62,18 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
     setPeriod,
     goToPreviousDate,
     goToNextDate,
-  } = useOverviewPeriod(cycles);
+    anchorDate,
+  } = useOverviewPeriod(cycles, {
+    period: isOverviewPeriodEnabled(requestedInitialPeriod)
+      ? requestedInitialPeriod
+      : "mtd",
+    anchorDate: initialReportContext.anchorDate,
+  });
   const {
     appliedFilters,
-    draftFilters,
     appliedFilterCount,
-    isFilterOpen,
     openFilterSheet,
-    closeFilterSheet,
-    updateDraftFilter,
-    clearDraftFilters,
-    applyFilters,
-  } = useOverviewFilters();
-
-  const {
-    regionOptions,
-    ammOptions,
-    supervisorOptions,
-    isLoadingRegionOptions,
-    isLoadingAmmOptions,
-    isLoadingSupervisorOptions,
-    regionOptionsError,
-    ammOptionsError,
-    supervisorOptionsError,
-  } = useOverviewFilterOptions(
-    draftFilters,
-  );
+  } = useOrganizationFilters();
 
   const {
     data,
@@ -103,13 +97,36 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
     dimDateError ?? overviewError;
   const hasCycles = cycles.length > 0;
   const dateNavigatorProps = {
-    label: periodLabel,
+    prefix: periodLabel,
     value: dateLabel,
     canGoPrevious,
     canGoNext,
     onPrevious: goToPreviousDate,
     onNext: goToNextDate,
   };
+  useEffect(() => {
+    if (!anchorDate) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("period", period);
+    params.set("date", anchorDate);
+    params.set(
+      "region",
+      appliedFilters.region,
+    );
+    params.set(
+      "amm",
+      appliedFilters.amm,
+    );
+    params.set(
+      "supervisor",
+      appliedFilters.supervisor,
+    );
+    window.history.replaceState({}, "", `/?${params.toString()}`);
+  }, [
+    anchorDate,
+    appliedFilters,
+    period,
+  ]);
   useEffect(() => {
     if (!toastMessage) return;
 
@@ -176,9 +193,23 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
     setToastMessage(getUnavailableRouteMessage());
   }
 
+  function showLandingToast() {
+    setToastMessage("Chức năng chưa được triển khai");
+  }
+
   function handleNavigate(route: AppNavigationRoute) {
     if (route === "team") {
-      onNavigate?.("/team");
+      const params = new URLSearchParams({
+        period,
+        date: anchorDate,
+        region:
+          appliedFilters.region,
+        amm:
+          appliedFilters.amm,
+        supervisor:
+          appliedFilters.supervisor,
+      });
+      onNavigate?.(`/team?${params.toString()}`);
       return;
     }
     if (!canNavigate(route)) {
@@ -201,33 +232,7 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
         footer={<BottomNavigation activeRoute="overview" onNavigate={handleNavigate} />}
         overlays={(
           <>
-            <FilterSheet
-              isOpen={isFilterOpen}
-              filters={draftFilters}
-              regionOptions={regionOptions}
-              ammOptions={ammOptions}
-              supervisorOptions={
-                supervisorOptions
-              }
-              isLoadingRegion={
-                isLoadingRegionOptions
-              }
-              isLoadingAmm={
-                isLoadingAmmOptions
-              }
-              isLoadingSupervisor={
-                isLoadingSupervisorOptions
-              }
-              optionsError={
-                regionOptionsError ??
-                ammOptionsError ??
-                supervisorOptionsError
-              }
-              onChange={updateDraftFilter}
-              onClear={clearDraftFilters}
-              onClose={closeFilterSheet}
-              onApply={applyFilters}
-            />
+            <OrganizationFilterSheet />
             <RouteToast message={toastMessage} />
           </>
         )}
@@ -236,15 +241,18 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
               <div id="memOverviewRoot">
                 <div className="memv2-page">
                   <DashboardHeader
-                    dateNavigator={(
-                      <DateNavigator {...dateNavigatorProps} />
-                    )}
+                    title="Tổng quan"
+                    dateNavigator={dateNavigatorProps}
                     appliedFilterCount={appliedFilterCount}
                     actionRowRef={headerActionRowRef}
-                    onLogout={showUnavailableToast}
+                    backAriaLabel="Về trang Landing"
+                    onBack={showLandingToast}
                     onOpenFilters={openFilterSheet}
                   />
-                  <PeriodTabs period={period} onChange={(nextPeriod) => {
+                  <ReportPeriodMode
+                    period={period}
+                    isPeriodEnabled={isOverviewPeriodEnabled}
+                    onChange={(nextPeriod) => {
               if (!isOverviewPeriodEnabled(nextPeriod)) {
                 setToastMessage(
                   OVERVIEW_PERIOD_UNAVAILABLE_MESSAGE,
@@ -253,7 +261,8 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
               }
 
               setPeriod(nextPeriod);
-            }} />
+            }}
+                  />
 
                   {loading ? (
                     <div className="overview-state">Đang tải dữ liệu...</div>
@@ -319,9 +328,7 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
             }
           >
             <DashboardCompactHeader
-              dateNavigator={(
-                <DateNavigator {...dateNavigatorProps} />
-              )}
+              dateNavigator={dateNavigatorProps}
               appliedFilterCount={appliedFilterCount}
               onOpenFilters={openFilterSheet}
             />
@@ -329,8 +336,3 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
     </div>
   );
 }
-
-
-
-
-

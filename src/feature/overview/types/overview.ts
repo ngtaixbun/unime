@@ -1,11 +1,7 @@
 import type {
-  EncodedDimensionValue,
-} from "@/queries/org-filter";
-
-export type OverviewPeriod =
-  | "today"
-  | "seven-days"
-  | "mtd";
+  OrganizationFilterOption,
+  OrganizationFilters,
+} from "@/components/organization-filter/organization-filter.types";
 
 export type OverviewKpiStatus =
   | "good"
@@ -26,16 +22,11 @@ export interface TrendPoint {
   date?: string;
 }
 
-export interface OverviewFilters {
-  region: EncodedDimensionValue;
-  amm: EncodedDimensionValue;
-  supervisor: EncodedDimensionValue;
-}
+export type OverviewFilters =
+  OrganizationFilters;
 
-export interface FilterOption {
-  label: string;
-  value: EncodedDimensionValue;
-}
+export type FilterOption =
+  OrganizationFilterOption;
 
 export interface OverviewKpi {
   id: string;

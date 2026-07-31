@@ -41,6 +41,16 @@ export type {
 export * from "./dim-date";
 
 export {
+  dimKpi,
+  dimKpiQuery,
+  dimKpiColumnMetadata,
+} from "./dim-kpi";
+
+export type {
+  DimKpiRow,
+} from "./dim-kpi";
+
+export {
   kpiMtd,
   kpiMtdQuery,
   columnMetadata as kpiMtdColumnMetadata,
@@ -50,6 +60,17 @@ export type {
   KpiMtdRow,
   KpiMtdQueryParams,
 } from "./kpimtd";
+
+export {
+  teamEmployeeKpi,
+  teamEmployeeKpiQuery,
+  teamEmployeeKpiColumnMetadata,
+} from "./team-employee-kpi";
+
+export type {
+  TeamEmployeeKpiRow,
+  TeamEmployeeKpiQueryParams,
+} from "./team-employee-kpi";
 
 export {
   kpiMtdTrend,
@@ -72,5 +93,3 @@ export type {
   EncodedDimensionValue,
   OrgQueryFilters,
 } from "./org-filter";
-
-

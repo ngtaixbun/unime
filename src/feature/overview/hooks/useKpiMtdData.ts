@@ -21,7 +21,19 @@ import type {
 } from "../types";
 
 export type KpiMtdValues =
-  KpiMtdRow;
+  Pick<
+    KpiMtdRow,
+    | "successfulCallsMtd"
+    | "successfulCallsIssued"
+    | "visitMtd"
+    | "visitIssued"
+    | "timeSpendMtd"
+    | "timeSpendIssued"
+    | "osaMtd"
+    | "osaIssued"
+    | "qcMtd"
+    | "qcIssued"
+  >;
 
 export interface UseKpiMtdDataResult {
   values: KpiMtdValues | null;
@@ -119,6 +131,9 @@ export function useKpiMtdData(
     query:
       queryConfig?.query ??
       "",
+    columnMetadata:
+      queryConfig
+        ?.columnMetadata,
     backendRequest:
       cycleKey === null
         ? undefined
@@ -225,7 +240,7 @@ export function useKpiMtdData(
                 "qcIssued",
             ),
         } satisfies Record<
-          keyof KpiMtdRow,
+          keyof KpiMtdValues,
           number
         >;
 

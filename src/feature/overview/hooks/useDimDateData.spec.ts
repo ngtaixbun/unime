@@ -120,6 +120,12 @@ describe("useDimDateData", () => {
     ).toHaveBeenCalledWith({
       connection: "unimeModel",
       query: dimDate().query,
+      columnMetadata:
+        dimDate().columnMetadata,
+      backendRequest: {
+        queryId: "dim-date",
+        params: {},
+      },
     });
   });
 

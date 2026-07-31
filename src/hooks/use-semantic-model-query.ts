@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -10,20 +11,28 @@ import type {
 
 import {
   executeBackendSemanticModelQuery,
+  executeGenericBackendSemanticModelQuery,
   type BackendSemanticQueryRequest,
 } from "@/lib/backend-semantic-model-client";
 
 import {
   getFabricClient,
 } from "@/lib/fabric-client";
+import type {
+  ColumnMetadataMap,
+} from "@/lib/to-data-table";
 
 interface UseSemanticModelQueryOptions {
   connection: string;
   query: string;
   bypassCache?: boolean;
+  enabled?: boolean;
 
   backendRequest?:
     BackendSemanticQueryRequest;
+
+  columnMetadata?:
+    ColumnMetadataMap;
 }
 
 interface UseSemanticModelQueryResult {
@@ -49,7 +58,9 @@ export function useSemanticModelQuery(
     connection,
     query,
     bypassCache,
+    enabled = true,
     backendRequest,
+    columnMetadata,
   } = options;
 
   const dataSource =
@@ -59,45 +70,60 @@ export function useSemanticModelQuery(
       ? "backend"
       : "fabric";
 
-  const backendQueryId =
-    backendRequest?.queryId;
+  const backendQueryMode =
+    import.meta.env
+      .VITE_BACKEND_QUERY_MODE ===
+    "generic"
+      ? "generic"
+      : "registered";
 
-  const backendCycleKey =
-    backendRequest?.params
-      .cycleKey;
+  const backendRequestKey =
+    backendRequest === undefined
+      ? ""
+      : JSON.stringify(
+          backendRequest,
+        );
 
-  const backendRegion =
-    backendRequest?.params
-      .region;
-
-  const backendAmm =
-    backendRequest?.params
-      .amm;
-
-  const backendSupervisor =
-    backendRequest?.params
-      .supervisor;
+  const expectedColumnsKey =
+    columnMetadata === undefined
+      ? ""
+      : JSON.stringify(
+          Object.keys(
+            columnMetadata,
+          ),
+        );
 
   const canExecute =
-    dataSource === "backend"
+    enabled &&
+    (
+      dataSource === "backend"
       ? (
-          backendQueryId !==
-            undefined &&
-          backendCycleKey !==
-            undefined &&
-          backendCycleKey !==
-            null &&
-          backendRegion !==
-            undefined &&
-          backendAmm !==
-            undefined &&
-          backendSupervisor !==
-            undefined
+          backendQueryMode ===
+            "generic"
+            ? Boolean(
+                query &&
+                expectedColumnsKey &&
+                expectedColumnsKey !==
+                  "[]",
+              )
+            : backendRequestKey !==
+              ""
         )
       : Boolean(
           connection &&
           query,
-        );
+        )
+    );
+
+  const executionKey =
+    canExecute
+      ? dataSource === "backend"
+        ? backendQueryMode ===
+            "generic"
+          ? `backend:generic:${connection}:${query}:${expectedColumnsKey}:${String(Boolean(bypassCache))}`
+          : `backend:registered:${backendRequestKey}:${String(Boolean(bypassCache))}`
+        : `fabric:${connection}:${query}:${String(Boolean(bypassCache))}`
+      : "";
 
   const [
     data,
@@ -119,16 +145,39 @@ export function useSemanticModelQuery(
     setError,
   ] = useState<
     Error |
-    undefined
+      undefined
   >();
+
+  const [
+    resultExecutionKey,
+    setResultExecutionKey,
+  ] = useState("");
+
+  const executionGeneration =
+    useRef(0);
 
   const execute =
     useCallback(
       async () => {
+        const generation =
+          executionGeneration.current +
+          1;
+
+        executionGeneration.current =
+          generation;
+
         if (!canExecute) {
+          setData(undefined);
+          setError(undefined);
+          setIsLoading(false);
+          setResultExecutionKey("");
           return;
         }
 
+        setResultExecutionKey(
+          executionKey,
+        );
+        setData(undefined);
         setIsLoading(true);
         setError(undefined);
 
@@ -136,24 +185,21 @@ export function useSemanticModelQuery(
           const result =
             dataSource ===
             "backend"
-              ? await executeBackendSemanticModelQuery({
-                  queryId:
-                    backendQueryId,
-
-                  params: {
-                    cycleKey:
-                      backendCycleKey,
-
-                    region:
-                      backendRegion,
-
-                    amm:
-                      backendAmm,
-
-                    supervisor:
-                      backendSupervisor,
-                  },
-                })
+              ? backendQueryMode ===
+                  "generic"
+                ? await executeGenericBackendSemanticModelQuery({
+                    query,
+                    expectedColumns:
+                      JSON.parse(
+                        expectedColumnsKey,
+                      ) as string[],
+                  })
+                : await executeBackendSemanticModelQuery(
+                    JSON.parse(
+                      backendRequestKey,
+                    ) as
+                      BackendSemanticQueryRequest,
+                  )
               : await getFabricClient()
                   .semanticModel(
                     connection,
@@ -164,6 +210,13 @@ export function useSemanticModelQuery(
                       bypassCache,
                     },
                   );
+
+          if (
+            executionGeneration.current !==
+            generation
+          ) {
+            return;
+          }
 
           setData(result);
 
@@ -180,6 +233,13 @@ export function useSemanticModelQuery(
         } catch (
           cause: unknown
         ) {
+          if (
+            executionGeneration.current !==
+            generation
+          ) {
+            return;
+          }
+
           setData(undefined);
 
           setError(
@@ -190,19 +250,23 @@ export function useSemanticModelQuery(
                 ),
           );
         } finally {
-          setIsLoading(false);
+          if (
+            executionGeneration.current ===
+            generation
+          ) {
+            setIsLoading(false);
+          }
         }
       },
       [
-        backendAmm,
-        backendCycleKey,
-        backendQueryId,
-        backendRegion,
-        backendSupervisor,
+        backendRequestKey,
+        backendQueryMode,
         bypassCache,
         canExecute,
         connection,
         dataSource,
+        executionKey,
+        expectedColumnsKey,
         query,
       ],
     );
@@ -219,9 +283,23 @@ export function useSemanticModelQuery(
   );
 
   return {
-    data,
-    isLoading,
-    error,
+    data:
+      resultExecutionKey ===
+      executionKey
+        ? data
+        : undefined,
+    isLoading:
+      canExecute &&
+      (
+        resultExecutionKey !==
+          executionKey ||
+        isLoading
+      ),
+    error:
+      resultExecutionKey ===
+      executionKey
+        ? error
+        : undefined,
     refetch: execute,
   };
 }

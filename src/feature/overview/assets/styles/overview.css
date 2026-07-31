@@ -32,17 +32,6 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.overview-page button,
-.overview-page input,
-.overview-page select,
-.overview-page textarea {
-  font-family: inherit;
-}
-
-.overview-page button {
-  cursor: pointer;
-}
-
 .overview-page .shell {
   height: 100dvh;
   display: flex;
@@ -89,17 +78,6 @@
   gap: 12px;
 }
 
-/* Overview Date Navigator remains feature-owned. */
-#memOverviewView
-.overviewFullHeader
-> .screenHeader
-> .toprow.nwHeaderControlsRow
-> .overviewFullHeaderDateSlot
-> .mtdDateNav {
-  background: rgba(255, 255, 255, 0.42);
-  border-color: rgba(255, 255, 255, 0.22);
-}
-
 .overview-page .overviewCompactHeaderHost {
   top: var(--overview-sticky-top, 0px);   box-sizing: border-box;   overflow: hidden;   left: var(--overview-sticky-left, 0px);   padding: 0;   right: auto;   width: var(--overview-sticky-width, 100vw);   z-index: 180;   max-width: none;   transform-origin: top center;   position: fixed;   border-radius: 32px 32px 24px 24px;   margin: 0;
 
@@ -121,112 +99,6 @@ opacity: 0;
 transition:
     opacity .14s ease,
     transform .14s ease;
-}
-
-.overview-page .mtdNavBtn svg {
-  width: 18px;
-  height: 18px;
-  stroke: currentColor;
-}
-
-.overview-page .mtdDateNav {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 38px;
-  max-width: 100%;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, .98) 0%, rgba(246, 250, 255, .94) 100%) padding-box,
-    linear-gradient(90deg, rgba(255, 255, 255, .98) 0%, rgba(3, 101, 204, .18) 50%, rgba(255, 255, 255, .98) 100%) border-box;
-  border: 1px solid transparent;
-  box-shadow: 0 10px 18px rgba(23, 54, 111, .08), inset 0 1px 0 rgba(255, 255, 255, .98);
-}
-
-.overview-page .mtdNavBtn {
-  border: 0;
-  background: transparent;
-  color: #183a84;
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-}
-
-.overview-page .mtdDateText {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  white-space: nowrap;
-}
-
-.overview-page .mtdLabel {
-  color: #7286a3;
-  font-weight: var(--overview-fw-medium);
-}
-
-.overview-page .mtdValue {
-  color: #183a84;
-  font-weight: var(--overview-fw-emphasis);
-}
-
-.overview-page .overviewPeriodBelow {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  margin: 0 0 10px;
-  padding: 4px;
-  min-height: 44px;
-  border-radius: 15px;
-  background: rgba(255, 255, 255, .9);
-  border: 1px solid rgba(220, 229, 246, .95);
-  overflow: hidden;
-}
-
-.overview-page .memv2-period-btn {
-  position: relative;
-  height: 36px;
-  border: 0;
-  border-radius: 11px;
-  background: transparent;
-  color: #748198;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 8px;
-  font-size: 13px;
-  line-height: 1;
-  font-weight: var(--overview-fw-medium);
-}
-
-.overview-page .memv2-period-btn:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: 9px;
-  width: 1px;
-  height: 18px;
-  background: rgba(214, 224, 241, .9);
-}
-
-.overview-page .memv2-period-btn.active {
-  background: #eef1ff;
-  color: #123a9a;
-  font-weight: var(--overview-fw-semibold);
-}
-
-.overview-page .memv2-period-btn.active::after,
-.overview-page .memv2-period-btn:has(+ .active)::after {
-  display: none;
-}
-
-.overview-page .periodIcon {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 15px;
 }
 
 .overview-page .memv2-section {
@@ -725,154 +597,6 @@ white-space: nowrap;
 }
 
 
-.overview-page .memv2-nav-btn {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: #7a8496;
-  border-radius: 13px;
-  height: 46px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 10px;
-line-height: 1.05;
-  font-weight: var(--overview-fw-medium);
-}
-
-.overview-page .memv2-nav-btn svg {
-  width: 17px;
-  height: 17px;
-  stroke-width: 1.65;
-}
-
-.overview-page .memv2-nav-btn.active {
-  box-shadow: inset 0 0 0 1px rgba(15, 14, 154, .10);
-  color: var(--mem-blue);
-  background: #eef1ff;
-  font-weight: var(--overview-fw-semibold);
-}
-
-.overview-page .simple-filter-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2000;
-  display: none;
-  align-items: flex-end;
-  background: rgba(15, 23, 42, .34);
-  backdrop-filter: blur(3px);
-}
-
-.overview-page .simple-filter-overlay.show {
-  display: flex;
-}
-
-.overview-page .simple-filter-sheet {
-  width: 100%;
-  background: #fff;
-  border-radius: 26px 26px 0 0;
-  padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
-  box-shadow: 0 -18px 44px rgba(15, 23, 42, .22);
-}
-
-.overview-page .simple-filter-handle {
-  width: 42px;
-  height: 5px;
-  margin: 0 auto 14px;
-  border-radius: 99px;
-  background: #dde4f0;
-}
-
-.overview-page .simple-filter-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.overview-page .simple-filter-head b {
-  font-size: 16px;
-  color: #25324b;
-  font-weight: var(--overview-fw-emphasis);
-}
-
-.overview-page .simple-filter-close {
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 999px;
-  background: #eef1ff;
-  color: #0f0e9a;
-  font-size: 22px;
-}
-
-.overview-page .simple-filter-grid {
-  display: grid;
-  gap: 10px;
-}
-
-.overview-page .simple-filter-grid label {
-  display: grid;
-  gap: 5px;
-  font-size: 11px;
-color: #667085;
-  font-weight: var(--overview-fw-medium);
-}
-
-.overview-page .simple-filter-grid select {
-  min-height: 42px;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 0 12px;
-  background: #fff;
-}
-
-.overview-page .simple-filter-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.overview-page .simple-filter-clear,
-.overview-page .simple-filter-apply {
-  min-width: 0;
-  min-height: 44px;
-  border-radius: 14px;
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1.2;
-  font-weight: 640;
-  cursor: pointer;
-}
-
-.overview-page .simple-filter-clear {
-  border: 1px solid #d9e0eb;
-  background: #ffffff;
-  color: #475467;
-}
-
-.overview-page .simple-filter-apply {
-  border: 0;
-  background: #0f0e9a;
-  color: #ffffff;
-}
-
-.overview-page .simple-filter-clear:active,
-.overview-page .simple-filter-apply:active {
-  transform: scale(.98);
-}
-
-@media (max-width: 360px) {
-  .overview-page .simple-filter-actions {
-    grid-template-columns: 1fr;
-  }
-}
-
 .overview-page .route-toast {
   position: absolute;
   left: 50%;
@@ -922,40 +646,12 @@ color: #667085;
   padding: 6px 10px;
 }
 
-.overview-page .simple-filter-error {
-  display: block;
-  font-size: 10px;
-color: #b42318;
-  margin-top: 2px;
-  font-weight: var(--overview-fw-medium);
-}
-
 @media (max-width: 390px) {
   .overview-page .app {
     padding-left: 10px;
     padding-right: 10px;
     padding-bottom: calc(68px + env(safe-area-inset-bottom));
   }
-
-  .overview-page .mtdLabel {
-    display: none;
-  font-weight: var(--overview-fw-medium);
-}
-
-  .overview-page .overviewPeriodBelow {
-    min-height: 42px;
-    border-radius: 14px;
-    margin-bottom: 9px;
-  }
-
-  .overview-page .memv2-period-btn {
-    height: 34px;
-    border-radius: 10px;
-    font-size: 12.5px;
-    gap: 5px;
-    padding: 0 6px;
-  font-weight: var(--overview-fw-medium);
-}
 
   .overview-page .memv2-coverage-pair {
     gap: 8px;
@@ -1037,11 +733,6 @@ color: #b42318;
   font-weight: var(--overview-fw-medium);
 }
 
-  .overview-page .memv2-nav-btn {
-    font-size: 9.4px;
-  font-weight: var(--overview-fw-medium);
-}
-
   .overview-page .memv2-kpi-title b {
     font-size: 10.8px;
   font-weight: var(--overview-fw-semibold);
@@ -1104,4 +795,3 @@ letter-spacing: 0.01em;
 .overview-page .memv2-kpi-issued.no-data .memv2-issue-icon svg {
   color: #8a95a6;
 }
-

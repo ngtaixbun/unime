@@ -1,0 +1,85 @@
+.report-period-mode {
+  min-width: 0;
+  min-height: var(--size-report-period);
+  margin: 0 0 var(--spacing-m-nudge);
+  padding: var(--spacing-xs);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-3xl);
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+}
+
+.report-period-mode__item {
+  position: relative;
+  min-width: 0;
+  height: var(--size-report-period-item);
+  padding: 0 var(--spacing-s);
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: transparent;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-s-nudge);
+  font-size: var(--text-300);
+  line-height: var(--leading-100);
+  font-weight: var(--font-weight-medium);
+}
+
+.report-period-mode__item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: var(--spacing-s);
+  right: 0;
+  width: 1px;
+  height: var(--icon-size-300);
+  background: var(--color-border-medium);
+}
+
+.report-period-mode__item[data-active="true"] {
+  background: var(--color-brand-soft);
+  color: var(--color-brand-navy);
+  font-weight: var(--font-weight-semibold);
+}
+
+.report-period-mode__item[data-active="true"]::after,
+.report-period-mode__item:has(+ [data-active="true"])::after {
+  display: none;
+}
+
+.report-period-mode__item[data-enabled="false"]:not([data-active="true"]) {
+  color: var(--color-text-subtle);
+}
+
+.report-period-mode__item svg {
+  width: var(--icon-size-report-period);
+  height: var(--icon-size-report-period);
+  flex: 0 0 var(--icon-size-report-period);
+}
+
+.report-period-mode__item:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: -2px;
+}
+
+.report-period-mode__item:active {
+  transform: translateY(1px);
+}
+
+@media (max-width: 390px) {
+  .report-period-mode {
+    min-height: var(--size-report-period-compact);
+    border-radius: var(--radius-2xl);
+    margin-bottom: var(--spacing-s);
+  }
+
+  .report-period-mode__item {
+    height: var(--size-report-period-item-compact);
+    padding-inline: var(--spacing-s-nudge);
+    font-size: var(--text-200);
+    gap: var(--spacing-xs);
+  }
+}
