@@ -11,8 +11,18 @@ import {
 } from "../dax/overview-kpi-summary.js";
 
 import {
+  buildTeamEmployeeDetailsDax,
+  teamEmployeeDetailsColumns,
+} from "../dax/team-employee-details.js";
+
+import {
   buildTeamEmployeeKpiDax,
 } from "../dax/team-employee-kpi.js";
+
+import {
+  buildTeamEmployeeTrendDax,
+  teamEmployeeTrendColumns,
+} from "../dax/team-employee-trend.js";
 
 import {
   buildRegisteredDaxQuery,
@@ -359,6 +369,313 @@ test("team-employee-kpi schema rejects invalid cycleKey, kpiId, and organization
           ...validParams,
           supervisor:
             "north",
+        },
+      }),
+  );
+});
+
+test("team-employee-details schema dispatches the five-KPI employee summary builder", () => {
+  const request =
+    daxQueryRequestSchema.parse({
+      queryId:
+        "team-employee-details",
+
+      params: {
+        cycleKey:
+          "2026-08",
+        employeeId:
+          'NV"101',
+        region:
+          "number:7",
+        amm:
+          "string:AMM North",
+        supervisor:
+          "number:42",
+      },
+    });
+
+  const dax =
+    buildRegisteredDaxQuery(
+      request,
+    );
+
+  assert.equal(
+    dax,
+    buildTeamEmployeeDetailsDax({
+      cycleKey:
+        "2026-08",
+      employeeId:
+        'NV"101',
+      filters: {
+        region:
+          "number:7",
+        amm:
+          "string:AMM North",
+        supervisor:
+          "number:42",
+      },
+    }),
+  );
+
+  assert.deepEqual(
+    teamEmployeeDetailsColumns,
+    [
+      "employeeId",
+      "employeeCode",
+      "employeeLabel",
+      "regionLabel",
+      "ammLabel",
+      "supervisorLabel",
+      "nppLabel",
+      "kpiId",
+      "kpiLabel",
+      "actual",
+      "target",
+      "percentage",
+    ],
+  );
+
+  assert.match(
+    dax,
+    /VAR\s+_SelectedEmployeeId\s*=\s*"NV""101"/,
+  );
+
+  assert.match(
+    dax,
+    /\{\s*1,\s*2,\s*3,\s*4,\s*5\s*\}/,
+  );
+
+  for (
+    const column of [
+      "Employee_Id",
+      "EmployeeCode",
+      "FullName",
+      "Region",
+      "amm_name",
+      "sup_name",
+      "npp_name",
+    ]
+  ) {
+    assert.match(
+      dax,
+      new RegExp(
+        `'dimnv'\\[${column}\\]`,
+      ),
+    );
+  }
+
+  for (
+    const measure of [
+      "Actual KPI Selected",
+      "Target KPI Selected",
+      "MTD KPI Selected",
+    ]
+  ) {
+    assert.match(
+      dax,
+      new RegExp(
+        `\\[${measure}\\]`,
+      ),
+    );
+  }
+
+  assert.match(
+    dax,
+    /\{ 7 \}\s*,\s*'dimnv'\[Region ID\]/,
+  );
+
+  assert.match(
+    dax,
+    /\{ "AMM North" \}\s*,\s*'dimnv'\[amm_id\]/,
+  );
+
+  assert.match(
+    dax,
+    /\{ 42 \}\s*,\s*'dimnv'\[sup_id\]/,
+  );
+
+  assert.doesNotMatch(
+    dax,
+    /__[A-Z_]+__/,
+  );
+});
+
+test("team-employee-trend schema dispatches the last-eight nonblank date builder", () => {
+  const request =
+    daxQueryRequestSchema.parse({
+      queryId:
+        "team-employee-trend",
+
+      params: {
+        cycleKey:
+          202608,
+        employeeId:
+          9001,
+        kpiId:
+          4,
+        region:
+          "all",
+        amm:
+          "number:8214",
+        supervisor:
+          "number:8227",
+      },
+    });
+
+  const dax =
+    buildRegisteredDaxQuery(
+      request,
+    );
+
+  assert.equal(
+    dax,
+    buildTeamEmployeeTrendDax({
+      cycleKey:
+        202608,
+      employeeId:
+        9001,
+      kpiId:
+        4,
+      filters: {
+        region:
+          "all",
+        amm:
+          "number:8214",
+        supervisor:
+          "number:8227",
+      },
+    }),
+  );
+
+  assert.deepEqual(
+    teamEmployeeTrendColumns,
+    [
+      "Date",
+      "percentage",
+    ],
+  );
+
+  assert.match(
+    dax,
+    /VAR\s+_SelectedCycleKey\s*=\s*202608/,
+  );
+
+  assert.match(
+    dax,
+    /VAR\s+_SelectedEmployeeId\s*=\s*9001/,
+  );
+
+  assert.match(
+    dax,
+    /VAR\s+_SelectedKpiId\s*=\s*4/,
+  );
+
+  assert.match(
+    dax,
+    /TOPN\(\s*8,/,
+  );
+
+  assert.match(
+    dax,
+    /NOT ISBLANK\(\[percentage\]\)/,
+  );
+
+  assert.match(
+    dax,
+    /ORDER BY\s*\[Date\]\s+ASC/,
+  );
+
+  assert.match(
+    dax,
+    /\{ 8214 \}\s*,\s*'dimnv'\[amm_id\]/,
+  );
+
+  assert.match(
+    dax,
+    /\{ 8227 \}\s*,\s*'dimnv'\[sup_id\]/,
+  );
+
+  assert.doesNotMatch(
+    dax,
+    /__[A-Z_]+__/,
+  );
+});
+
+test("employee detail query schemas reject invalid identities, KPI IDs, filters, and extra params", () => {
+  const detailsParams = {
+    cycleKey:
+      202608,
+    employeeId:
+      "NV-101",
+    region:
+      "all",
+    amm:
+      "all",
+    supervisor:
+      "all",
+  } as const;
+
+  assert.throws(
+    () =>
+      daxQueryRequestSchema.parse({
+        queryId:
+          "team-employee-details",
+        params: {
+          ...detailsParams,
+          employeeId:
+            "   ",
+        },
+      }),
+  );
+
+  assert.throws(
+    () =>
+      daxQueryRequestSchema.parse({
+        queryId:
+          "team-employee-details",
+        params: {
+          ...detailsParams,
+          employeeId:
+            Number.NaN,
+        },
+      }),
+  );
+
+  assert.throws(
+    () =>
+      daxQueryRequestSchema.parse({
+        queryId:
+          "team-employee-details",
+        params: {
+          ...detailsParams,
+          region:
+            "north",
+        },
+      }),
+  );
+
+  assert.throws(
+    () =>
+      daxQueryRequestSchema.parse({
+        queryId:
+          "team-employee-details",
+        params: {
+          ...detailsParams,
+          kpiId:
+            4,
+        },
+      }),
+  );
+
+  assert.throws(
+    () =>
+      daxQueryRequestSchema.parse({
+        queryId:
+          "team-employee-trend",
+        params: {
+          ...detailsParams,
+          kpiId:
+            0,
         },
       }),
   );

@@ -39,8 +39,16 @@ import {
 } from "../dax/overview-kpi-trend.js";
 
 import {
+  buildTeamEmployeeDetailsDax,
+} from "../dax/team-employee-details.js";
+
+import {
   buildTeamEmployeeKpiDax,
 } from "../dax/team-employee-kpi.js";
+
+import {
+  buildTeamEmployeeTrendDax,
+} from "../dax/team-employee-trend.js";
 
 import {
   isEncodedDimensionValue,
@@ -112,6 +120,36 @@ const overviewKpiSummaryParamsSchema =
 
 const teamEmployeeKpiParamsSchema =
   organizationParamsSchema
+    .extend({
+      kpiId:
+        z.number()
+          .int()
+          .positive(),
+    })
+    .strict();
+
+const employeeIdSchema =
+  z.union([
+    z.number().finite(),
+
+    z.string()
+      .trim()
+      .min(
+        1,
+        "employeeId đang trống.",
+      ),
+  ]);
+
+const teamEmployeeDetailsParamsSchema =
+  organizationParamsSchema
+    .extend({
+      employeeId:
+        employeeIdSchema,
+    })
+    .strict();
+
+const teamEmployeeTrendParamsSchema =
+  teamEmployeeDetailsParamsSchema
     .extend({
       kpiId:
         z.number()
@@ -235,6 +273,26 @@ const daxQueryRequestSchema =
       z.object({
         queryId:
           z.literal(
+            "team-employee-details",
+          ),
+
+        params:
+          teamEmployeeDetailsParamsSchema,
+      }).strict(),
+
+      z.object({
+        queryId:
+          z.literal(
+            "team-employee-trend",
+          ),
+
+        params:
+          teamEmployeeTrendParamsSchema,
+      }).strict(),
+
+      z.object({
+        queryId:
+          z.literal(
             "dim-date",
           ),
 
@@ -348,6 +406,51 @@ function buildRegisteredDaxQuery(
       return buildTeamEmployeeKpiDax({
         cycleKey:
           request.params.cycleKey,
+
+        kpiId:
+          request.params.kpiId,
+
+        filters: {
+          region:
+            request.params.region,
+
+          amm:
+            request.params.amm,
+
+          supervisor:
+            request.params
+              .supervisor,
+        },
+      });
+
+    case "team-employee-details":
+      return buildTeamEmployeeDetailsDax({
+        cycleKey:
+          request.params.cycleKey,
+
+        employeeId:
+          request.params.employeeId,
+
+        filters: {
+          region:
+            request.params.region,
+
+          amm:
+            request.params.amm,
+
+          supervisor:
+            request.params
+              .supervisor,
+        },
+      });
+
+    case "team-employee-trend":
+      return buildTeamEmployeeTrendDax({
+        cycleKey:
+          request.params.cycleKey,
+
+        employeeId:
+          request.params.employeeId,
 
         kpiId:
           request.params.kpiId,
