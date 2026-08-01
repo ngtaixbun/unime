@@ -22,6 +22,19 @@ interface BackendTeamEmployeeKpiQueryParams {
   supervisor: EncodedDimensionValue;
 }
 
+interface BackendTeamEmployeeDetailsQueryParams {
+  cycleKey: string | number;
+  employeeId: string | number;
+  region: EncodedDimensionValue;
+  amm: EncodedDimensionValue;
+  supervisor: EncodedDimensionValue;
+}
+
+interface BackendTeamEmployeeTrendQueryParams extends
+  BackendTeamEmployeeDetailsQueryParams {
+  kpiId: number;
+}
+
 interface BackendDimAmmQueryParams {
   region: EncodedDimensionValue;
 }
@@ -40,6 +53,12 @@ interface BackendSemanticQueryParamsById {
 
   "team-employee-kpi":
     BackendTeamEmployeeKpiQueryParams;
+
+  "team-employee-details":
+    BackendTeamEmployeeDetailsQueryParams;
+
+  "team-employee-trend":
+    BackendTeamEmployeeTrendQueryParams;
 
   "dim-date":
     Record<string, never>;
@@ -148,6 +167,26 @@ const expectedColumnsByQuery = {
     "supervisorId",
     "actual",
     "target",
+    "percentage",
+  ],
+
+  "team-employee-details": [
+    "employeeId",
+    "employeeCode",
+    "employeeLabel",
+    "regionLabel",
+    "ammLabel",
+    "supervisorLabel",
+    "nppLabel",
+    "kpiId",
+    "kpiLabel",
+    "actual",
+    "target",
+    "percentage",
+  ],
+
+  "team-employee-trend": [
+    "Date",
     "percentage",
   ],
 

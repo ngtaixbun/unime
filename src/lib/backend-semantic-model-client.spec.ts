@@ -515,6 +515,191 @@ describe(
     );
 
     it(
+      "uses the registered employee-detail request and exact twelve-column contract",
+      async () => {
+        vi.stubEnv(
+          "VITE_API_BASE_URL",
+          "https://unime-backend.onrender.com",
+        );
+
+        const fetchMock =
+          vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: {
+                rows: [{
+                  employeeId: 9542,
+                  employeeCode: "NV09542",
+                  employeeLabel: "Nhân viên Semantic",
+                  regionLabel: "HCM",
+                  ammLabel: "AMM 01",
+                  supervisorLabel: "Sup 01",
+                  nppLabel: "NPP A",
+                  kpiId: 4,
+                  kpiLabel: "OSA",
+                  actual: 8,
+                  target: 10,
+                  percentage: 0.8,
+                }],
+              },
+            }),
+          });
+
+        vi.stubGlobal("fetch", fetchMock);
+
+        const result =
+          await executeBackendSemanticModelQuery({
+            queryId:
+              "team-employee-details",
+            params: {
+              cycleKey: 202608,
+              employeeId: 9542,
+              region: "number:1",
+              amm: "number:8214",
+              supervisor:
+                "number:8227",
+            },
+          });
+
+        expect(fetchMock).toHaveBeenCalledWith(
+          "/api/dax/query",
+          expect.objectContaining({
+            body: JSON.stringify({
+              queryId:
+                "team-employee-details",
+              params: {
+                cycleKey: 202608,
+                employeeId: 9542,
+                region: "number:1",
+                amm: "number:8214",
+                supervisor:
+                  "number:8227",
+              },
+            }),
+          }),
+        );
+        expect(result.status).toBe("success");
+
+        if (result.status !== "success") {
+          throw new Error("Expected success result.");
+        }
+
+        expect(
+          result.table.columns.map(
+            (column) => column.name,
+          ),
+        ).toEqual([
+          "[employeeId]",
+          "[employeeCode]",
+          "[employeeLabel]",
+          "[regionLabel]",
+          "[ammLabel]",
+          "[supervisorLabel]",
+          "[nppLabel]",
+          "[kpiId]",
+          "[kpiLabel]",
+          "[actual]",
+          "[target]",
+          "[percentage]",
+        ]);
+        expect(result.table.rows[0]).toEqual([
+          9542,
+          "NV09542",
+          "Nhân viên Semantic",
+          "HCM",
+          "AMM 01",
+          "Sup 01",
+          "NPP A",
+          4,
+          "OSA",
+          8,
+          10,
+          0.8,
+        ]);
+      },
+    );
+
+    it(
+      "uses the registered employee-trend request and exact two-column contract",
+      async () => {
+        vi.stubEnv(
+          "VITE_API_BASE_URL",
+          "https://unime-backend.onrender.com",
+        );
+
+        const fetchMock =
+          vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: {
+                rows: [{
+                  Date:
+                    "2026-07-23T00:00:00.000",
+                  percentage: 0.8,
+                }],
+              },
+            }),
+          });
+
+        vi.stubGlobal("fetch", fetchMock);
+
+        const result =
+          await executeBackendSemanticModelQuery({
+            queryId:
+              "team-employee-trend",
+            params: {
+              cycleKey: 202608,
+              employeeId: 9542,
+              kpiId: 4,
+              region: "all",
+              amm: "all",
+              supervisor: "all",
+            },
+          });
+
+        expect(fetchMock).toHaveBeenCalledWith(
+          "/api/dax/query",
+          expect.objectContaining({
+            body: JSON.stringify({
+              queryId:
+                "team-employee-trend",
+              params: {
+                cycleKey: 202608,
+                employeeId: 9542,
+                kpiId: 4,
+                region: "all",
+                amm: "all",
+                supervisor: "all",
+              },
+            }),
+          }),
+        );
+        expect(result.status).toBe("success");
+
+        if (result.status !== "success") {
+          throw new Error("Expected success result.");
+        }
+
+        expect(
+          result.table.columns.map(
+            (column) => column.name,
+          ),
+        ).toEqual([
+          "[Date]",
+          "[percentage]",
+        ]);
+        expect(result.table.rows).toEqual([[
+          "2026-07-23T00:00:00.000",
+          0.8,
+        ]]);
+      },
+    );
+
+    it(
       "converts dim-date rows to the existing six-column contract",
       async () => {
         vi.stubEnv(

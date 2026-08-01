@@ -22,6 +22,8 @@ export interface TeamByKpiPanelProps {
     () => Promise<void>;
   onMetricChange:
     (metric: TeamMetricKey) => void;
+  onOpenEmployee:
+    (employee: TeamEmployeeKpiViewRow) => void;
 }
 
 function compareEmployeeIds(
@@ -96,6 +98,7 @@ export function TeamByKpiPanel({
   error,
   onRetry,
   onMetricChange,
+  onOpenEmployee,
 }: TeamByKpiPanelProps) {
   const list =
     selectFailingTeamEmployeeKpiRows(
@@ -173,9 +176,13 @@ export function TeamByKpiPanel({
         ) : list.length ? (
           list.map(
             (row) => (
-              <div
+              <button
                 className="team-employee-row"
                 key={row.key}
+                type="button"
+                onClick={() =>
+                  onOpenEmployee(row)
+                }
               >
                 <span>
                   <b>
@@ -203,7 +210,7 @@ export function TeamByKpiPanel({
                     )}
                   </em>
                 </span>
-              </div>
+              </button>
             ),
           )
         ) : (

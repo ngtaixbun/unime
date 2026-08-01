@@ -2,7 +2,10 @@ DEFINE
     VAR _Rows =
         DISTINCT(
             SELECTCOLUMNS(
-                'dimnv',
+                FILTER(
+                    'dimnv',
+                    'dimnv'[mappingStatus] = 1
+                ),
 
                 "employeeId",
                     'dimnv'[Employee_Id],
@@ -24,7 +27,6 @@ DEFINE
 EVALUATE
 FILTER(
     _Rows,
-
     NOT ISBLANK([employeeId])
         && NOT ISBLANK([employeeLabel])
         && NOT ISBLANK([supervisorId])

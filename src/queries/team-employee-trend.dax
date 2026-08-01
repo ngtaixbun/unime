@@ -1,0 +1,70 @@
+DEFINE
+    VAR _SelectedCycleKey =
+        __SELECTED_CYCLE_KEY__
+
+    VAR _SelectedEmployeeId =
+        __SELECTED_EMPLOYEE_ID__
+
+    VAR _SelectedKpiId =
+        __SELECTED_KPI_ID__
+
+EVALUATE
+VAR _Rows =
+    CALCULATETABLE(
+        SELECTCOLUMNS(
+            SUMMARIZECOLUMNS(
+                'Date'[Date],
+
+                "percentage",
+                    [MTD KPI Selected]
+            ),
+
+            "Date",
+                'Date'[Date],
+
+            "percentage",
+                [percentage]
+        ),
+
+        KEEPFILTERS(
+            TREATAS(
+                { _SelectedCycleKey },
+                'Date'[Chu kỳ KPI Key]
+            )
+        ),
+
+        KEEPFILTERS(
+            TREATAS(
+                { _SelectedEmployeeId },
+                'dimnv'[Employee_Id]
+            )
+        ),
+
+        KEEPFILTERS(
+            TREATAS(
+                { _SelectedKpiId },
+                'KPIname'[num]
+            )
+        )
+
+        __REGION_FILTER__
+        __AMM_FILTER__
+        __SUPERVISOR_FILTER__
+    )
+
+VAR _LastEightDates =
+    TOPN(
+        8,
+        FILTER(
+            _Rows,
+            NOT ISBLANK([percentage])
+        ),
+        [Date],
+        DESC
+    )
+
+RETURN
+    _LastEightDates
+
+ORDER BY
+    [Date] ASC

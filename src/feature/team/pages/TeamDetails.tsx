@@ -17,6 +17,7 @@ import {
   TeamByKpiPanel,
   TeamDetailsTabs,
   TeamEmployeeDetailsSheet,
+  TeamSemanticEmployeeDetailsSheet,
   TeamManagerPanel,
   TeamMultiKpiPanel,
   TeamNppPanel,
@@ -26,6 +27,9 @@ import {
   useTeamDetails,
   useTeamEmployeeKpiData,
   useTeamKpiDimension,
+} from "../hooks";
+import type {
+  TeamEmployeeKpiViewRow,
 } from "../hooks";
 import type {
   TeamDetailsTab,
@@ -58,6 +62,11 @@ export function TeamDetails({ onNavigate }: TeamDetailsProps) {
   const [streakMetric, setStreakMetric] = useState<TeamMetricKey>(requestedMetric && metricKeys.includes(requestedMetric) ? requestedMetric : "qc");
   const [multiGroup, setMultiGroup] = useState<TeamRiskGroup>(requestedGroup && groupKeys.includes(requestedGroup) ? requestedGroup : "high");
   const [multiMetrics, setMultiMetrics] = useState<TeamMetricKey[]>([]);
+  const [semanticEmployeeSelection, setSemanticEmployeeSelection] =
+    useState<{
+      employee: TeamEmployeeKpiViewRow;
+      metric: TeamMetricKey;
+    } | null>(null);
   const {
     kpis: semanticMetrics,
     isLoading: isKpiDimensionLoading,
@@ -96,12 +105,13 @@ export function TeamDetails({ onNavigate }: TeamDetailsProps) {
   }
   function changeTab(tab: TeamDetailsTab) {
     setActiveTab(tab);
+    setSemanticEmployeeSelection(null);
     syncUrl(tab, tab === "byKpi" ? detailMetric : tab === "streak" ? streakMetric : undefined, tab === "multi" ? multiGroup : undefined);
   }
 
   return (
     <div className="team-details">
-      <AppShell overlays={<TeamEmployeeDetailsSheet />}>
+      <AppShell overlays={<><TeamEmployeeDetailsSheet /><TeamSemanticEmployeeDetailsSheet key={semanticEmployeeSelection?.employee.key ?? "closed"} selection={semanticEmployeeSelection} cycleKey={team.selectedCycleKey} filters={organization.appliedFilters} semanticMetrics={semanticMetrics} onClose={() => setSemanticEmployeeSelection(null)} /></>}>
         <header className="team-details-header"><button type="button" aria-label="Quay lại Đội ngũ" onClick={() => onNavigate(`/team?${createRouteSearchParams().toString()}`)}><ArrowLeft /></button><div><h1>Chi tiết Đội ngũ</h1><p>{team.periodLabel}: {team.dateLabel} · {team.filterSummary}</p></div><span /></header>
         <TeamDetailsTabs activeTab={activeTab} onChange={changeTab} />
         <main className="team-details-content">
@@ -125,6 +135,12 @@ export function TeamDetails({ onNavigate }: TeamDetailsProps) {
               onMetricChange={(metric) => {
                 setDetailMetric(metric);
                 syncUrl("byKpi", metric);
+              }}
+              onOpenEmployee={(employee) => {
+                setSemanticEmployeeSelection({
+                  employee,
+                  metric: detailMetric,
+                });
               }}
             />
           ) : null}

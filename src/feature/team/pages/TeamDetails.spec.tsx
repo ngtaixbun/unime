@@ -21,6 +21,7 @@ const {
   semanticCycles,
   reloadCycles,
   employeeKpiHook,
+  employeeDetailsHook,
   retryEmployeeKpi,
   retryKpis,
   semanticKpis,
@@ -51,6 +52,7 @@ const {
     async () => undefined,
   ),
   employeeKpiHook: vi.fn(),
+  employeeDetailsHook: vi.fn(),
   retryEmployeeKpi: vi.fn(
     async () => undefined,
   ),
@@ -104,6 +106,15 @@ vi.mock(
     useTeamEmployeeKpiData: (
       params: unknown,
     ) => employeeKpiHook(params),
+  }),
+);
+
+vi.mock(
+  "../hooks/useTeamSemanticEmployeeDetails",
+  () => ({
+    useTeamSemanticEmployeeDetails: (
+      params: unknown,
+    ) => employeeDetailsHook(params),
   }),
 );
 
@@ -167,6 +178,7 @@ describe(
   () => {
     beforeEach(() => {
       employeeKpiHook.mockReset();
+      employeeDetailsHook.mockReset();
       retryEmployeeKpi.mockClear();
       retryKpis.mockClear();
       employeeKpiHook.mockReturnValue({
@@ -188,6 +200,34 @@ describe(
         isLoading: false,
         error: null,
         retry: retryEmployeeKpi,
+      });
+      employeeDetailsHook.mockReturnValue({
+        employee: {
+          employeeId: 9001,
+          employeeCode: "NV-SEM-9001",
+          employeeLabel: "Nhân viên Semantic",
+          regionLabel: "North Semantic",
+          ammLabel: "AMM Semantic",
+          supervisorLabel: "Mer Sup Semantic",
+          nppLabel: "NPP Semantic",
+          kpis: semanticKpis.map((item) => ({
+            kpiId: item.kpiId,
+            kpiLabel: item.label,
+            actual: 81,
+            target: 100,
+            percentage: 0.81,
+          })),
+        },
+        trend: [
+          {
+            date: "2026-07-23",
+            value: 0.81,
+            delta: 0.01,
+          },
+        ],
+        isLoading: false,
+        error: null,
+        retry: vi.fn(async () => undefined),
       });
       window.history.replaceState(
         {},
@@ -379,6 +419,50 @@ describe(
       expect(
         window.location.search,
       ).toContain("metric=calls");
+    });
+
+    it("opens the bottom popup with real Semantic employee details", () => {
+      render(
+        <OrganizationFilterProvider>
+          <TeamProvider>
+            <TeamDetails
+              onNavigate={() => undefined}
+            />
+          </TeamProvider>
+        </OrganizationFilterProvider>,
+      );
+
+      fireEvent.click(
+        screen.getByRole(
+          "button",
+          { name: /Nhân viên Semantic/ },
+        ),
+      );
+
+      expect(employeeDetailsHook)
+        .toHaveBeenLastCalledWith({
+          cycleKey: 202608,
+          employeeId: 9001,
+          kpiId: 5,
+          filters: {
+            region: "number:1",
+            amm: "all",
+            supervisor: "all",
+          },
+          enabled: true,
+        });
+      expect(
+        screen.getByRole(
+          "dialog",
+          { name: "Nhân viên Semantic" },
+        ),
+      ).toBeVisible();
+      expect(
+        screen.getByText("NV-SEM-9001"),
+      ).toBeVisible();
+      expect(
+        screen.getByText("NPP Semantic"),
+      ).toBeVisible();
     });
   },
 );

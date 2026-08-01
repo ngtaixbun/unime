@@ -106,6 +106,8 @@ function renderPanel(
     );
   const onMetricChange =
     vi.fn();
+  const onOpenEmployee =
+    vi.fn();
 
   const result = render(
     <TeamByKpiPanel
@@ -120,6 +122,9 @@ function renderPanel(
       onMetricChange={
         onMetricChange
       }
+      onOpenEmployee={
+        onOpenEmployee
+      }
       {...overrides}
     />,
   );
@@ -128,6 +133,7 @@ function renderPanel(
     ...result,
     onRetry,
     onMetricChange,
+    onOpenEmployee,
   };
 }
 
@@ -199,10 +205,10 @@ describe(
       ).toBeVisible();
     });
 
-    it("updates the selected KPI without opening a legacy employee sheet", () => {
+    it("updates the selected KPI and opens the selected Semantic employee", () => {
       const {
-        container,
         onMetricChange,
+        onOpenEmployee,
       } = renderPanel();
 
       fireEvent.change(
@@ -223,16 +229,18 @@ describe(
         .toHaveBeenCalledWith(
           "calls",
         );
-      expect(
-        container.querySelector(
-          ".team-employee-row",
-        )?.tagName,
-      ).toBe("DIV");
-      expect(
-        container.querySelector(
-          ".team-employee-row button",
+
+      fireEvent.click(
+        screen.getByRole(
+          "button",
+          { name: /An/ },
         ),
-      ).toBeNull();
+      );
+
+      expect(onOpenEmployee)
+        .toHaveBeenCalledWith(
+          semanticRows[2],
+        );
     });
 
     it("keeps a stable loading state without showing stale rows", () => {

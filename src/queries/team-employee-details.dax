@@ -1,0 +1,109 @@
+DEFINE
+    VAR _SelectedCycleKey =
+        __SELECTED_CYCLE_KEY__
+
+    VAR _SelectedEmployeeId =
+        __SELECTED_EMPLOYEE_ID__
+
+EVALUATE
+VAR _Rows =
+    CALCULATETABLE(
+        SELECTCOLUMNS(
+            SUMMARIZECOLUMNS(
+                'dimnv'[Employee_Id],
+                'dimnv'[EmployeeCode],
+                'dimnv'[FullName],
+                'dimnv'[Region],
+                'dimnv'[amm_name],
+                'dimnv'[sup_name],
+                'dimnv'[npp_name],
+                'KPIname'[num],
+                'KPIname'[KPI],
+
+                "__keep",
+                    1,
+
+                "actual",
+                    [Actual KPI Selected],
+
+                "target",
+                    [Target KPI Selected],
+
+                "percentage",
+                    [MTD KPI Selected]
+            ),
+
+            "employeeId",
+                'dimnv'[Employee_Id],
+
+            "employeeCode",
+                'dimnv'[EmployeeCode],
+
+            "employeeLabel",
+                'dimnv'[FullName],
+
+            "regionLabel",
+                'dimnv'[Region],
+
+            "ammLabel",
+                'dimnv'[amm_name],
+
+            "supervisorLabel",
+                'dimnv'[sup_name],
+
+            "nppLabel",
+                'dimnv'[npp_name],
+
+            "kpiId",
+                'KPIname'[num],
+
+            "kpiLabel",
+                'KPIname'[KPI],
+
+            "actual",
+                [actual],
+
+            "target",
+                [target],
+
+            "percentage",
+                [percentage]
+        ),
+
+        KEEPFILTERS(
+            TREATAS(
+                { _SelectedCycleKey },
+                'Date'[Chu kỳ KPI Key]
+            )
+        ),
+
+        KEEPFILTERS(
+            TREATAS(
+                { _SelectedEmployeeId },
+                'dimnv'[Employee_Id]
+            )
+        ),
+
+        KEEPFILTERS(
+            TREATAS(
+                { 1, 2, 3, 4, 5 },
+                'KPIname'[num]
+            )
+        )
+
+        __REGION_FILTER__
+        __AMM_FILTER__
+        __SUPERVISOR_FILTER__
+    )
+
+RETURN
+FILTER(
+    _Rows,
+    NOT ISBLANK([employeeId])
+        && NOT ISBLANK([employeeLabel])
+        && [kpiId] >= 1
+        && [kpiId] <= 5
+)
+
+ORDER BY
+    [kpiId] ASC

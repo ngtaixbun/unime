@@ -73,6 +73,26 @@ export type {
 } from "./team-employee-kpi";
 
 export {
+  teamEmployeeDetails,
+  teamEmployeeDetailsQuery,
+  teamEmployeeDetailsColumnMetadata,
+} from "./team-employee-details";
+
+export type {
+  TeamEmployeeDetailsQueryParams,
+} from "./team-employee-details";
+
+export {
+  teamEmployeeTrend,
+  teamEmployeeTrendQuery,
+  teamEmployeeTrendColumnMetadata,
+} from "./team-employee-trend";
+
+export type {
+  TeamEmployeeTrendQueryParams,
+} from "./team-employee-trend";
+
+export {
   kpiMtdTrend,
   kpiMtdTrendQuery,
   kpiMtdTrendColumnMetadata,
