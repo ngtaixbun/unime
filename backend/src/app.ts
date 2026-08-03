@@ -1,288 +1,68 @@
 import cors from "cors";
-
-import express, {
-  type NextFunction,
-  type Request,
-  type Response,
-} from "express";
-
-import rateLimit from
-  "express-rate-limit";
-
+import express, { type Request, type Response } from "express";
 import helmet from "helmet";
-import { ZodError } from "zod";
+import type { GatewayEnv } from "./config/env.js";
+import type { DaxController } from "./controllers/dax.controller.js";
+import type { HealthController } from "./controllers/health.controller.js";
+import { CorsOriginError, errorMiddleware } from "./middleware/error.middleware.js";
+import { requestIdMiddleware } from "./middleware/request-id.middleware.js";
+import { createDaxRouter } from "./routes/dax.route.js";
+import { createHealthRouter } from "./routes/health.route.js";
 
-import { env } from "./config/env.js";
-
-import {
-  daxRouter,
-} from "./routes/dax.route.js";
-
-import {
-  executePowerBiDax,
-  PowerBiServiceError,
-} from "./services/powerbi-query.js";
-
-class CorsOriginError extends Error {
-  public constructor(
-    origin: string,
-  ) {
-    super(
-      `Origin không được phép: ${origin}`,
-    );
-
-    this.name = "CorsOriginError";
-  }
+export interface AppControllers {
+  readonly dax: DaxController;
+  readonly health: HealthController;
 }
 
-export const app = express();
+export function createApp(env: GatewayEnv, controllers: AppControllers) {
+  const app = express();
+  const allowedOrigins = new Set(env.corsOrigins);
 
-app.disable("x-powered-by");
-
-app.use(helmet());
-
-app.use(
-  cors({
+  app.disable("x-powered-by");
+  app.use(helmet());
+  app.use(requestIdMiddleware);
+  app.use(cors({
     origin(origin, callback) {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-
-      if (
-        env.corsOrigins.includes(
-          origin,
-        )
-      ) {
-        callback(null, true);
-        return;
-      }
-
-      callback(
-        new CorsOriginError(
-          origin,
-        ),
-      );
+      if (!origin || allowedOrigins.has(origin)) callback(null, true);
+      else callback(new CorsOriginError());
     },
-
-    methods: [
-      "GET",
-      "POST",
-      "OPTIONS",
-    ],
-
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-    ],
-  }),
-);
-
-app.use(
-  express.json({
-    limit:
-      env.DAX_MAX_LENGTH_BYTES +
-      65_536,
-  }),
-);
-
-app.use(
-  "/api",
-  rateLimit({
-    windowMs: 60_000,
-    limit: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-  }),
-);
-
-app.use(
-  "/api/dax",
-  (
-    _request: Request,
-    response: Response,
-    next: NextFunction,
-  ) => {
-    response.setHeader(
-      "Cache-Control",
-      "no-store, private",
-    );
-
-    next();
-  },
-);
-
-app.get(
-  "/api/health",
-  (
-    _request: Request,
-    response: Response,
-  ) => {
-    response.json({
-      success: true,
-
-      data: {
-        service:
-          "unime-backend",
-
-        status:
-          "healthy",
-      },
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "X-Request-ID"],
+    exposedHeaders: ["X-Request-ID"],
+    credentials: false,
+  }));
+  app.use(express.json({
+    limit: env.DAX_MAX_LENGTH_BYTES * env.BATCH_MAX_QUERIES + 65_536,
+  }));
+  app.use((request: Request, response: Response, next) => {
+    response.on("finish", () => {
+      console.info(JSON.stringify({
+        level: "info",
+        requestId: request.requestId,
+        method: request.method,
+        path: request.originalUrl.split("?", 1)[0],
+        status: response.statusCode,
+        durationMs: Math.max(0, Math.round(performance.now() - request.requestStartedAt)),
+      }));
     });
-  },
-);
-
-app.get(
-  "/api/health/semantic-model",
-  async (
-    _request: Request,
-    response: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      const result =
-        await executePowerBiDax(
-          `
-EVALUATE
-ROW(
-    "status",
-    1
-)
-          `.trim(),
-        );
-
-      response.json({
-        success: true,
-
-        data: {
-          semanticModel:
-            "connected",
-
-          queryResult:
-            result,
-        },
-      });
-    } catch (error: unknown) {
-      next(error);
-    }
-  },
-);
-
-app.use(
-  "/api/dax",
-  daxRouter,
-);
-
-app.use(
-  (
-    request: Request,
-    response: Response,
-  ) => {
+    next();
+  });
+  app.use("/api/dax", (_request, response, next) => {
+    response.setHeader("cache-control", "no-store, private");
+    next();
+  });
+  app.use("/api/health", createHealthRouter(controllers.health));
+  app.use("/api/dax", createDaxRouter(controllers.dax));
+  app.use((request: Request, response: Response) => {
     response.status(404).json({
       success: false,
-
       error: {
-        code:
-          "ROUTE_NOT_FOUND",
-
-        message:
-          `Không tìm thấy ${request.method} ${request.path}.`,
+        code: "ROUTE_NOT_FOUND",
+        message: `Route ${request.method} ${request.path} was not found.`,
+        requestId: request.requestId,
       },
     });
-  },
-);
-
-app.use(
-  (
-    error: unknown,
-    _request: Request,
-    response: Response,
-    _next: NextFunction,
-  ) => {
-    void _next;
-    if (
-      error instanceof
-      ZodError
-    ) {
-      response.status(400).json({
-        success: false,
-
-        error: {
-          code:
-            "INVALID_REQUEST",
-
-          message:
-            "Nội dung request không hợp lệ.",
-
-          details:
-            error.flatten(),
-        },
-      });
-
-      return;
-    }
-
-    if (
-      error instanceof
-      CorsOriginError
-    ) {
-      response.status(403).json({
-        success: false,
-
-        error: {
-          code:
-            "CORS_ORIGIN_DENIED",
-
-          message:
-            error.message,
-        },
-      });
-
-      return;
-    }
-
-    if (
-      error instanceof
-      PowerBiServiceError
-    ) {
-      console.error({
-        code: error.code,
-        message: error.message,
-        statusCode:
-          error.statusCode,
-      });
-
-      response
-        .status(
-          error.statusCode,
-        )
-        .json({
-          success: false,
-
-          error: {
-            code:
-              error.code,
-
-            message:
-              error.message,
-          },
-        });
-
-      return;
-    }
-
-    console.error(error);
-
-    response.status(500).json({
-      success: false,
-
-      error: {
-        code:
-          "INTERNAL_SERVER_ERROR",
-
-        message:
-          "Backend không thể xử lý request.",
-      },
-    });
-  },
-);
+  });
+  app.use(errorMiddleware);
+  return app;
+}

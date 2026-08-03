@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: unime-backend
+    runtime: node
+    rootDir: backend
+    autoDeploy: false
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TENANT_ID
+        sync: false
+      - key: CLIENT_ID
+        sync: false
+      - key: CLIENT_SECRET
+        sync: false
+      - key: WORKSPACE_ID
+        sync: false
+      - key: SEMANTIC_MODEL_ID
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: POWERBI_TIMEOUT_MS
+        value: "60000"
+      - key: DAX_MAX_LENGTH_BYTES
+        value: "64000"
+      - key: BATCH_MAX_QUERIES
+        value: "10"
+      - key: BATCH_CONCURRENCY
+        value: "4"

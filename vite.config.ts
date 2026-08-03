@@ -44,7 +44,14 @@ const localNetworkAccessPlugin: PluginOption = {
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
     const viteEnv = loadEnv(mode, projectRoot, '');
-    const backendTarget = viteEnv.VITE_API_BASE_URL?.trim().replace(/\/+$/, '');
+    const configuredApiBase = viteEnv.VITE_API_BASE_URL?.trim();
+    let backendTarget: string | undefined;
+
+    if (configuredApiBase && /^https?:\/\//i.test(configuredApiBase)) {
+        const targetUrl = new URL(configuredApiBase);
+        targetUrl.pathname = targetUrl.pathname.replace(/\/api\/?$/i, '').replace(/\/+$/, '') || '/';
+        backendTarget = targetUrl.toString().replace(/\/+$/, '');
+    }
 
     return {
     server: {

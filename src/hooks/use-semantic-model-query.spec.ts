@@ -1,214 +1,190 @@
-//-----------------------------------------------------------------------
-// <copyright company="Microsoft Corporation">
-//        Copyright (c) Microsoft Corporation.  All rights reserved.
-//        Licensed under the MIT license. See LICENSE file in the project root for full license information.
-// </copyright>
-//-----------------------------------------------------------------------
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act, waitFor } from "@testing-library/react";
-import { useSemanticModelQuery, clearQueryCache } from "@/hooks/use-semantic-model-query";
+import { clearQueryCache, useSemanticModelQuery } from "@/hooks/use-semantic-model-query";
 
-// Mock the Fabric client module so tests run offline.
 const {
-    mockClearCache,
-    mockSemanticModelClearCache,
-    mockQuery,
-    mockRegisteredBackendQuery,
-    mockGenericBackendQuery,
+  mockExecuteDax,
 } = vi.hoisted(() => ({
-    mockClearCache: vi.fn(),
-    mockSemanticModelClearCache: vi.fn(),
-    mockQuery: vi.fn(),
-    mockRegisteredBackendQuery: vi.fn(),
-    mockGenericBackendQuery: vi.fn(),
+  mockExecuteDax: vi.fn(),
 }));
 
-vi.mock("@/lib/fabric-client", () => ({
-    getFabricClient: () => ({
-        clearCache: mockClearCache,
-        semanticModel: () => ({
-            query: mockQuery,
-            clearCache: mockSemanticModelClearCache,
-        }),
-    }),
+vi.mock("@/lib/generic-dax-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/generic-dax-client")>()),
+  executeDax: mockExecuteDax,
 }));
 
-vi.mock("@/lib/backend-semantic-model-client", () => ({
-    executeBackendSemanticModelQuery: mockRegisteredBackendQuery,
-    executeGenericBackendSemanticModelQuery: mockGenericBackendQuery,
-}));
+const columnMetadata = {
+  "[Value]": { name: "Value", displayName: "Value" },
+  "Table[Nullable]": { name: "Nullable", displayName: "Nullable" },
+};
 
 describe("useSemanticModelQuery", () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        vi.unstubAllEnvs();
-        vi.stubEnv("VITE_DATA_SOURCE", "fabric");
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("starts in loading without showing an error before the first response", () => {
+    mockExecuteDax.mockReturnValue(new Promise(() => undefined));
+    const { result } = renderHook(() => useSemanticModelQuery({
+      connection: "model",
+      query: "EVALUATE ROW(\"Value\", 1)",
+      columnMetadata,
+    }));
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.data).toBeUndefined();
+    expect(result.current.error).toBeUndefined();
+    expect(result.current.state).toBe("loading");
+  });
+
+  it("keeps enabled=false in waiting without executing or reporting an error", async () => {
+    const { result } = renderHook(() => useSemanticModelQuery({
+      connection: "model",
+      query: "",
+      columnMetadata: undefined,
+      enabled: false,
+    }));
+
+    await waitFor(() => expect(result.current.state).toBe("waiting"));
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.error).toBeUndefined();
+    expect(result.current.errorInfo).toBeUndefined();
+    expect(mockExecuteDax).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["blank query", { connection: "model", query: "", columnMetadata }],
+    ["missing metadata", {
+      connection: "model",
+      query: "EVALUATE ROW(\"Value\", 1)",
+      columnMetadata: undefined,
+    }],
+  ])("reports %s as a pre-fetch configuration error", async (_label, options) => {
+    const { result } = renderHook(() => useSemanticModelQuery(options));
+
+    await waitFor(() => expect(result.current.state).toBe("error"));
+    expect(result.current.errorInfo).toMatchObject({
+      kind: "validation",
+      code: "QUERY_CONFIGURATION_INVALID",
+      requestAttempted: false,
     });
+    expect(result.current.error?.message).not.toBe("Không thể kết nối Generic DAX Gateway.");
+    expect(mockExecuteDax).not.toHaveBeenCalled();
+  });
 
-    it("starts in the loading state", () => {
-        mockQuery.mockReturnValue(new Promise(() => {})); // never resolves
-
-        const { result } = renderHook(() =>
-            useSemanticModelQuery({ connection: "model", query: "EVALUATE ROW()" }),
-        );
-
-        expect(result.current.isLoading).toBe(true);
-        expect(result.current.data).toBeUndefined();
-        expect(result.current.error).toBeUndefined();
+  it("sends raw DAX and normalized expected columns, then restores CLI column names", async () => {
+    mockExecuteDax.mockResolvedValue({
+      requestId: "request-1",
+      queryName: "dax-query",
+      columns: ["Value", "Nullable"],
+      rows: [[0, null]],
+      rowCount: 1,
+      schemaVerified: true,
     });
-
-    it("returns data on a successful query", async () => {
-        const successResult = {
-            status: "success" as const,
-            table: { columns: [{ name: "Value" }], rows: [[1]] },
-            fromCache: false,
-            cachedAt: undefined,
-        };
-        mockQuery.mockResolvedValue(successResult);
-
-        const { result } = renderHook(() =>
-            useSemanticModelQuery({ connection: "model", query: "EVALUATE ROW()" }),
-        );
-
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-        expect(result.current.data).toEqual(successResult);
-        expect(result.current.error).toBeUndefined();
+    const { result } = renderHook(() => useSemanticModelQuery({
+      connection: "model",
+      query: "EVALUATE ROW(\"Value\", 0, \"Nullable\", BLANK())",
+      columnMetadata,
+    }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockExecuteDax).toHaveBeenCalledWith({
+      dax: "EVALUATE ROW(\"Value\", 0, \"Nullable\", BLANK())",
+      expectedColumns: ["Value", "Nullable"],
+    }, { signal: expect.any(AbortSignal) });
+    expect(result.current.data).toMatchObject({
+      status: "success",
+      requestId: "request-1",
+      table: {
+        columns: [
+          { name: "[Value]", dataType: "unknown" },
+          { name: "Table[Nullable]", dataType: "unknown" },
+        ],
+        rows: [[0, null]],
+      },
     });
+    expect(result.current.state).toBe("success");
+  });
 
-    it("exposes an error when the query result has status 'error'", async () => {
-        const errorResult = {
-            status: "error" as const,
-            error: { message: "401 Unauthorized" },
-        };
-        mockQuery.mockResolvedValue(errorResult);
-
-        const { result } = renderHook(() =>
-            useSemanticModelQuery({ connection: "model", query: "EVALUATE ROW()" }),
-        );
-
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-        expect(result.current.error?.message).toBe("401 Unauthorized");
+  it("aborts obsolete backend work and blocks stale responses", async () => {
+    const resolvers: Array<(value: unknown) => void> = [];
+    const signals: AbortSignal[] = [];
+    mockExecuteDax.mockImplementation((_request, options: { signal: AbortSignal }) => {
+      signals.push(options.signal);
+      return new Promise((resolve) => resolvers.push(resolve));
     });
-
-    it("re-executes the query when refetch is called", async () => {
-        const successResult = {
-            status: "success" as const,
-            table: { columns: [], rows: [] },
-            fromCache: false,
-            cachedAt: undefined,
-        };
-        mockQuery.mockResolvedValue(successResult);
-
-        const { result } = renderHook(() =>
-            useSemanticModelQuery({ connection: "model", query: "EVALUATE ROW()" }),
-        );
-
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
-        expect(mockQuery).toHaveBeenCalledTimes(1);
-
-        await act(async () => {
-            await result.current.refetch();
-        });
-
-        expect(mockQuery).toHaveBeenCalledTimes(2);
+    const { result, rerender } = renderHook(
+      ({ query }) => useSemanticModelQuery({
+        connection: "model",
+        query,
+        columnMetadata,
+      }),
+      { initialProps: { query: "EVALUATE ROW(\"Value\", 1)" } },
+    );
+    await waitFor(() => expect(mockExecuteDax).toHaveBeenCalledTimes(1));
+    rerender({ query: "EVALUATE ROW(\"Value\", 2)" });
+    await waitFor(() => expect(mockExecuteDax).toHaveBeenCalledTimes(2));
+    expect(signals[0]?.aborted).toBe(true);
+    await act(async () => {
+      resolvers[0]?.({
+        requestId: "old", queryName: "dax-query", columns: ["Value", "Nullable"],
+        rows: [[1, null]], rowCount: 1, schemaVerified: true,
+      });
+      resolvers[1]?.({
+        requestId: "new", queryName: "dax-query", columns: ["Value", "Nullable"],
+        rows: [[2, null]], rowCount: 1, schemaVerified: true,
+      });
     });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data?.status === "success" && result.current.data.table.rows)
+      .toEqual([[2, null]]);
+  });
 
-    it("sends the complete DAX query and column metadata through generic backend mode", async () => {
-        vi.stubEnv("VITE_DATA_SOURCE", "backend");
-        vi.stubEnv("VITE_BACKEND_QUERY_MODE", "generic");
-
-        const successResult = {
-            status: "success" as const,
-            table: {
-                columns: [{ name: "[Value]", dataType: "unknown" }],
-                rows: [[1]],
-            },
-            requestId: "",
-            fromCache: false,
-            cachedAt: undefined,
-        };
-        mockGenericBackendQuery.mockResolvedValue(successResult);
-
-        const { result } = renderHook(() =>
-            useSemanticModelQuery({
-                connection: "model",
-                query: "EVALUATE ROW(\"Value\", 1)",
-                columnMetadata: {
-                    "[Value]": {
-                        name: "Value",
-                        displayName: "Value",
-                    },
-                },
-                backendRequest: {
-                    queryId: "dim-date",
-                    params: {},
-                },
-            }),
-        );
-
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-        expect(mockGenericBackendQuery).toHaveBeenCalledWith({
-            query: "EVALUATE ROW(\"Value\", 1)",
-            expectedColumns: ["[Value]"],
-        });
-        expect(mockRegisteredBackendQuery).not.toHaveBeenCalled();
-        expect(mockQuery).not.toHaveBeenCalled();
-        expect(result.current.data).toEqual(successResult);
+  it("re-executes the active query when refetch is called", async () => {
+    mockExecuteDax.mockResolvedValue({
+      requestId: "refetch", queryName: "dax-query", columns: ["Value", "Nullable"],
+      rows: [], rowCount: 0, schemaVerified: true,
     });
+    const { result } = renderHook(() => useSemanticModelQuery({
+      connection: "model", query: "EVALUATE ROW()", columnMetadata,
+    }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => result.current.refetch());
+    expect(mockExecuteDax).toHaveBeenCalledTimes(2);
+  });
 
-    it("keeps the registered backend request as the rollback mode", async () => {
-        vi.stubEnv("VITE_DATA_SOURCE", "backend");
-        vi.stubEnv("VITE_BACKEND_QUERY_MODE", "registered");
+  it("does not let a stale rejection overwrite a newer successful request", async () => {
+    let rejectOld: ((reason?: unknown) => void) | undefined;
+    mockExecuteDax
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => {
+        rejectOld = reject;
+      }))
+      .mockResolvedValueOnce({
+        requestId: "new",
+        queryName: "dax-query",
+        columns: ["Value", "Nullable"],
+        rows: [[2, null]],
+        rowCount: 1,
+        schemaVerified: true,
+      });
+    const { result, rerender } = renderHook(
+      ({ query }) => useSemanticModelQuery({ connection: "model", query, columnMetadata }),
+      { initialProps: { query: "EVALUATE ROW(\"Value\", 1)" } },
+    );
+    await waitFor(() => expect(mockExecuteDax).toHaveBeenCalledOnce());
+    rerender({ query: "EVALUATE ROW(\"Value\", 2)" });
+    await waitFor(() => expect(result.current.state).toBe("success"));
 
-        const successResult = {
-            status: "success" as const,
-            table: { columns: [], rows: [] },
-            requestId: "",
-            fromCache: false,
-            cachedAt: undefined,
-        };
-        mockRegisteredBackendQuery.mockResolvedValue(successResult);
+    await act(async () => rejectOld?.(new Error("stale failure")));
 
-        const backendRequest = {
-            queryId: "dim-date" as const,
-            params: {},
-        };
-        const { result } = renderHook(() =>
-            useSemanticModelQuery({
-                connection: "model",
-                query: "EVALUATE ROW()",
-                backendRequest,
-            }),
-        );
-
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-        expect(mockRegisteredBackendQuery).toHaveBeenCalledWith(backendRequest);
-        expect(mockGenericBackendQuery).not.toHaveBeenCalled();
-        expect(mockQuery).not.toHaveBeenCalled();
-    });
+    expect(result.current.error).toBeUndefined();
+    expect(result.current.data?.status === "success" && result.current.data.table.rows)
+      .toEqual([[2, null]]);
+  });
 });
 
 describe("clearQueryCache", () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        vi.unstubAllEnvs();
-        vi.stubEnv("VITE_DATA_SOURCE", "fabric");
-    });
-
-    it("clears all caches when called without an argument", () => {
-        clearQueryCache();
-        expect(mockClearCache).toHaveBeenCalledOnce();
-        expect(mockSemanticModelClearCache).not.toHaveBeenCalled();
-    });
-
-    it("clears only the specified model cache when called with a connection alias", () => {
-        clearQueryCache("salesModel");
-        expect(mockSemanticModelClearCache).toHaveBeenCalledOnce();
-        expect(mockClearCache).not.toHaveBeenCalled();
-    });
+  it("is a compatibility no-op because the gateway owns caching", () => {
+    clearQueryCache();
+    clearQueryCache("salesModel");
+  });
 });

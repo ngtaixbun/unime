@@ -1,140 +1,86 @@
-import dotenv from "dotenv";
+import "dotenv/config";
 import { z } from "zod";
 
-dotenv.config();
+const uuid = z.string().uuid();
+const positiveInteger = (minimum: number, maximum: number) =>
+  z.coerce.number().int().min(minimum).max(maximum);
 
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const envSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  PORT: positiveInteger(1, 65_535).default(3_000),
+  TENANT_ID: uuid,
+  CLIENT_ID: uuid,
+  CLIENT_SECRET: z.string().min(1),
+  WORKSPACE_ID: uuid,
+  SEMANTIC_MODEL_ID: uuid,
+  CORS_ORIGINS: z.string().optional(),
+  CORS_ORIGIN: z.string().optional(),
+  POWERBI_TIMEOUT_MS: positiveInteger(1, 300_000).default(60_000),
+  DAX_MAX_LENGTH_BYTES: positiveInteger(1, 1_048_576).default(64_000),
+  BATCH_MAX_QUERIES: positiveInteger(1, 100).default(10),
+  BATCH_CONCURRENCY: positiveInteger(1, 100).default(4),
+});
 
-const uuidSchema = z
-  .string()
-  .regex(
-    uuidPattern,
-    "Giá trị phải là UUID hợp lệ.",
-  );
+export const DEFAULT_CORS_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://still-coast-29a4a239b5-southeastasia.webapp.fabricapps.net",
+  "https://firm-thyme-e1ecf93bc7-southeastasia.webapp.fabricapps.net",
+  "https://app.fabric.microsoft.com",
+] as const;
 
-export function resolveGenericDaxEnabled(
-  configured:
-    "true" |
-    "false" |
-    undefined,
-  nodeEnv:
-    "development" |
-    "test" |
-    "production",
-): boolean {
-  if (
-    nodeEnv === "production" &&
-    configured === "true"
-  ) {
-    throw new Error(
-      "GENERIC_DAX_ENABLED=true không được phép ở production trước khi có inbound authentication.",
+export interface GatewayEnv extends z.infer<typeof envSchema> {
+  readonly corsOrigins: readonly string[];
+}
+
+export class EnvironmentValidationError extends Error {
+  public constructor(public readonly fields: readonly string[]) {
+    super(`Missing or invalid environment fields: ${fields.join(", ")}`);
+    this.name = "EnvironmentValidationError";
+  }
+}
+
+function splitOrigins(value: string | undefined): string[] {
+  return value?.split(",").map((origin) => origin.trim()).filter(Boolean) ?? [];
+}
+
+function assertOrigins(origins: readonly string[]): void {
+  const invalid = origins.some((origin) => {
+    if (origin === "*") return true;
+    try {
+      const parsed = new URL(origin);
+      return !["http:", "https:"].includes(parsed.protocol) || parsed.origin !== origin;
+    } catch {
+      return true;
+    }
+  });
+  if (invalid) throw new EnvironmentValidationError(["CORS_ORIGINS"]);
+}
+
+export function parseEnv(input: NodeJS.ProcessEnv): GatewayEnv {
+  const parsed = envSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new EnvironmentValidationError(
+      Object.keys(parsed.error.flatten().fieldErrors).sort(),
     );
   }
 
-  if (
-    configured === undefined
-  ) {
-    return nodeEnv !==
-      "production";
+  const corsOrigins = Array.from(new Set([
+    ...DEFAULT_CORS_ORIGINS,
+    ...splitOrigins(parsed.data.CORS_ORIGINS),
+    ...splitOrigins(parsed.data.CORS_ORIGIN),
+  ]));
+  assertOrigins(corsOrigins);
+  if (parsed.data.BATCH_CONCURRENCY > parsed.data.BATCH_MAX_QUERIES) {
+    throw new EnvironmentValidationError(["BATCH_CONCURRENCY"]);
   }
 
-  return configured ===
-    "true";
+  return Object.freeze({ ...parsed.data, corsOrigins });
 }
 
-const envSchema = z.object({
-  NODE_ENV: z
-    .enum([
-      "development",
-      "test",
-      "production",
-    ])
-    .default("development"),
+let loadedEnv: GatewayEnv | undefined;
 
-  PORT: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(65535)
-    .default(3000),
-
-  POWERBI_TENANT_ID: uuidSchema,
-  POWERBI_CLIENT_ID: uuidSchema,
-
-  POWERBI_CLIENT_SECRET: z
-    .string()
-    .min(
-      1,
-      "POWERBI_CLIENT_SECRET đang trống.",
-    ),
-
-  POWERBI_WORKSPACE_ID: uuidSchema,
-  POWERBI_DATASET_ID: uuidSchema,
-
-  POWERBI_REQUEST_TIMEOUT_MS: z.coerce
-    .number()
-    .int()
-    .min(1000)
-    .max(120000)
-    .default(60000),
-
-  GENERIC_DAX_ENABLED: z
-    .enum([
-      "true",
-      "false",
-    ])
-    .optional(),
-
-  DAX_MAX_LENGTH_BYTES: z.coerce
-    .number()
-    .int()
-    .min(1024)
-    .max(512_000)
-    .default(64_000),
-
-  DAX_MAX_EXPECTED_COLUMNS: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(512)
-    .default(128),
-
-  CORS_ORIGINS: z
-    .string()
-    .min(1)
-    .default(
-      "http://localhost:5173,http://localhost:5174",
-    ),
-});
-
-const parsed =
-  envSchema.safeParse(process.env);
-
-if (!parsed.success) {
-  console.error(
-    "Backend environment configuration is invalid.",
-  );
-
-  console.error(
-    parsed.error.flatten().fieldErrors,
-  );
-
-  process.exit(1);
+export function getEnv(): GatewayEnv {
+  loadedEnv ??= parseEnv(process.env);
+  return loadedEnv;
 }
-
-export const env = Object.freeze({
-  ...parsed.data,
-
-  enableGenericDax:
-    resolveGenericDaxEnabled(
-      parsed.data.GENERIC_DAX_ENABLED,
-      parsed.data.NODE_ENV,
-    ),
-
-  corsOrigins:
-    parsed.data.CORS_ORIGINS
-      .split(",")
-      .map((origin) => origin.trim())
-      .filter(Boolean),
-});
