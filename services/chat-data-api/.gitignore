@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+!.env.example
+*.log
+# Regenerated from Unime sources by every build/test; never commit a stale copy.
+src/generated/

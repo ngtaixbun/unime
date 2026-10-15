@@ -1,0 +1,61 @@
+/* @market-measure-catalog
+"coverage_emp", [coverage_emp]
+"plan_emp", [plan_emp]
+"coverage_shop", [coverage_shop]
+"plan_shop", [plan_shop]
+"plan_call", [plan_call]
+"coverage_call", [coverage_call]
+"coverage_call_perc", [coverage_call_perc]
+"coverage_gap_call", [coverage_gap_call]
+"coverage_shop_perc", [coverage_shop_perc]
+"coverage_emp_perc", [coverage_emp_perc]
+"coverage_gap_emp", [coverage_gap_emp]
+"coverage_gap_shop", [coverage_gap_shop]
+"discipline_time", [discipline_time]
+"discipline_failtime", [discipline_failtime]
+"discipline_citre_perc", [discipline_citre_perc]
+"discipline_cosom_perc", [discipline_cosom_perc]
+"coverage_dibu_shop", [coverage_dibu_shop]
+"coverage_dibu_emp", [coverage_dibu_emp]
+"coverage_dibu_call", [coverage_dibu_call]
+"coverage_actual_call", [coverage_actual_call]
+"coverage_actual_shop", [coverage_actual_shop]
+"coverage_actual_emp", [coverage_actual_emp]
+"coverage_shop_vs_D1",
+            [coverage_shop_vs_D1]
+"coverage_emp_vs_D1",
+            [coverage_emp_vs_D1]
+"KQCH_TC", [KQCH_TC]
+"KQCH_KTC", [KQCH_KTC]
+"KQCH_dongcua", [KQCH_dongcua]
+"update_time", [Thời gian cập nhật]
+"employeeId_assigned", [Employee phụ trách],
+    "employeeName_assigned", [Tên NV phụ trách]
+@end-market-measure-catalog */
+
+DEFINE
+    __MODE_DEFINITIONS__
+
+EVALUATE
+VAR _Rows =
+    CALCULATETABLE(
+        SUMMARIZECOLUMNS(
+            __GROUP_BY_COLUMNS__
+            "__marketRowSlot", 1,
+            __MEASURE_EXPRESSIONS__
+        )
+        __CYCLE_FILTER__
+        __DATE_FILTER__
+        __MAPPING_FILTER__
+        __VALID_STORE_FILTER__
+        __REGION_FILTER__
+        __AMM_FILTER__
+        __SUPERVISOR_FILTER__
+        __EMPLOYEE_FILTER__
+        __NPP_FILTER__
+    )
+
+RETURN
+__RESULT_EXPRESSION__
+
+__ORDER_BY__

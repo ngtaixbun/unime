@@ -1,0 +1,73 @@
+# Render Blueprint for the isolated Unime Chat Data API (Hubi public POC).
+# Separate from the repository-root render.yaml (Generic DAX Gateway), which
+# must not be modified. Select this file as the Blueprint path in Render.
+#
+# No rootDir: Render hides files outside rootDir, and the build must regenerate
+# the query capability artifact from the original Unime sources under src/.
+services:
+  - type: web
+    name: unime-chat-data-api
+    runtime: node
+    plan: starter            # always-on; the free plan sleeps and exceeds Hubi's 15 s timeout
+    region: singapore
+    numInstances: 1          # process-local rate/concurrency limits are global only with one instance
+    autoDeploy: false
+    buildCommand: npm --prefix services/chat-data-api ci && npm --prefix services/chat-data-api run build
+    startCommand: npm --prefix services/chat-data-api start
+    healthCheckPath: /api/health
+    buildFilter:
+      paths:
+        - services/chat-data-api/**
+        - src/queries/market.ts
+        - src/queries/market.dax
+        - src/queries/market-query-builder.ts
+        - src/queries/org-filter.ts
+        - src/queries/query-context.ts
+        - src/lib/access-session.ts
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: CHAT_HOST
+        value: 0.0.0.0
+      - key: CHAT_REQUIRE_HTTPS
+        value: "true"
+      - key: CHAT_TRUST_PROXY_HOPS
+        value: "1"
+      # Fail closed: unset means false (501, no Power BI call). Set "true" in
+      # the dashboard only after Entra 401/403/200 checks pass.
+      - key: CHAT_SEMANTIC_ENABLED
+        sync: false
+      - key: CHAT_ENTRA_TENANT_ID
+        sync: false
+      - key: CHAT_ENTRA_API_AUDIENCE
+        sync: false
+      - key: CHAT_ENTRA_ALLOWED_CLIENT_IDS
+        sync: false
+      - key: CHAT_POWERBI_TENANT_ID
+        sync: false
+      - key: CHAT_POWERBI_CLIENT_ID
+        sync: false
+      - key: CHAT_POWERBI_CLIENT_SECRET
+        sync: false
+      - key: CHAT_POWERBI_WORKSPACE_ID
+        sync: false
+      - key: CHAT_POWERBI_SEMANTIC_MODEL_ID
+        sync: false
+      - key: CHAT_RATE_LIMIT_WINDOW_MS
+        value: "60000"
+      - key: CHAT_RATE_LIMIT_MAX_REQUESTS
+        value: "30"
+      - key: CHAT_SEMANTIC_MAX_CONCURRENCY
+        value: "2"
+      - key: CHAT_SEMANTIC_MAX_QUEUE
+        value: "8"
+      - key: CHAT_SEMANTIC_QUEUE_TIMEOUT_MS
+        value: "5000"
+      - key: CHAT_REQUEST_TIMEOUT_MS
+        value: "14000"
+      - key: CHAT_POWERBI_TIMEOUT_MS
+        value: "12000"
+      - key: CHAT_MAX_RESPONSE_BYTES
+        value: "16384"
