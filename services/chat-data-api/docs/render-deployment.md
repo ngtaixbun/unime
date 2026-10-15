@@ -1,6 +1,6 @@
 # Chat Data API — Render deployment and Entra setup (STEP 04B.5)
 
-Status: **prepared and clean-build verified locally; not deployed.**
+Status: **prepared and clean-build verified locally; Entra registrations live-validated; not deployed.**
 
 ## 1. What a cloud build needs
 
@@ -80,9 +80,12 @@ curl -s -w ' %{http_code}\n' -X POST -H 'Content-Type: application/json' \
 
 ## 3. Microsoft Entra (target tenant)
 
-Neither registration exists. Creating them needs explicit authorization; steps
-3.4 (role assignment = admin consent) need **Cloud Application Administrator**,
-**Privileged Role Administrator** or **Global Administrator**.
+Both registrations were created and validated with a real token on
+2026-10-15 (STEP 04B.7). The role assignment in step 3.4 succeeded with the
+signed-in user as owner of both applications; tenants that restrict this need
+**Cloud Application Administrator**, **Application Administrator** or
+**Global Administrator**. The commands below are kept as the reference
+procedure; do not rerun them against the existing registrations.
 
 ```bash
 TENANT=<tenant-id>   # do not commit the real value
@@ -108,9 +111,25 @@ for ROLE in coverage_store:nationwide:read coverage_employee:nationwide:read; do
   az rest --method POST --url "https://graph.microsoft.com/v1.0/servicePrincipals/$HUBI_SP/appRoleAssignments" \
     --body "{\"principalId\":\"$HUBI_SP\",\"resourceId\":\"$API_SP\",\"appRoleId\":\"$ROLE_ID\"}"
 done
-echo "CHAT_ENTRA_API_AUDIENCE=api://$API_APP  CHAT_ENTRA_ALLOWED_CLIENT_IDS=$HUBI_APP"
+echo "CHAT_ENTRA_API_AUDIENCE=$API_APP  CHAT_ENTRA_ALLOWED_CLIENT_IDS=$HUBI_APP"   # GUID, not api://
 echo "HUBI_ENTRA_CLIENT_ID=$HUBI_APP  HUBI_ENTRA_API_SCOPE=api://$API_APP/.default"
 ```
+
+### Values that must match a real token
+
+| Variable | Value | Why |
+|---|---|---|
+| `CHAT_ENTRA_TENANT_ID` | tenant GUID | issuer `https://login.microsoftonline.com/<tenant>/v2.0` and JWKS |
+| `CHAT_ENTRA_API_AUDIENCE` | **Chat Data API client ID GUID** | with `requestedAccessTokenVersion=2` the token `aud` is the client ID, never the `api://` URI |
+| `CHAT_ENTRA_ALLOWED_CLIENT_IDS` | Hubi Backend client ID GUID | compared with `azp` |
+| `CHAT_ENTRA_MAX_TOKEN_AGE_SECONDS` | `5700` | Entra back-dates `iat` ~5 min; observed `exp − iat = 3900 s`, app tokens can last up to 90 min. With the 3600 default every real token is rejected (401). |
+| Hubi `HUBI_ENTRA_API_SCOPE` | `api://<Chat Data API client ID>/.default` | the scope (not the audience) uses the `api://` URI |
+
+Signature (RS256 via tenant JWKS), issuer, audience, `exp`/`nbf`, `ver=2.0`,
+`azp` allowlist and role checks are unchanged; only the maximum lifetime is
+raised. Live validation (local, production mode, semantic disabled): valid
+token → 501 for both questions; no, malformed, tampered, wrong-audience or
+non-allowlisted token → 401.
 
 The Power BI service principal (`CHAT_POWERBI_*`) stays separate and is never
 given to Hubi. For the 403 check, use a third app with no role assignment that

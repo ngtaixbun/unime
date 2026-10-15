@@ -41,10 +41,16 @@ services:
         sync: false
       - key: CHAT_ENTRA_TENANT_ID
         sync: false
+      # v2 tokens carry the Chat Data API client ID GUID in `aud`; use that
+      # GUID here, not the api:// Application ID URI.
       - key: CHAT_ENTRA_API_AUDIENCE
         sync: false
       - key: CHAT_ENTRA_ALLOWED_CLIENT_IDS
         sync: false
+      # Entra back-dates iat by ~5 min, so real app tokens span ~3900 s (up to
+      # 90 min + skew). The 3600 default rejects every real token with 401.
+      - key: CHAT_ENTRA_MAX_TOKEN_AGE_SECONDS
+        value: "5700"
       - key: CHAT_POWERBI_TENANT_ID
         sync: false
       - key: CHAT_POWERBI_CLIENT_ID
