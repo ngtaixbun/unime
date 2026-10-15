@@ -60,7 +60,7 @@ path, create a **Web Service** manually with the same values:
 | Build | `npm --prefix services/chat-data-api ci && npm --prefix services/chat-data-api run build` |
 | Start | `npm --prefix services/chat-data-api start` |
 | Health check | `/api/health` |
-| Instance | Starter (paid, always on), 1 instance, auto-deploy off |
+| Instance | **Free** (sleeps after 15 min idle, ~1 min wake-up), 1 instance, auto-deploy off |
 | Env | as listed in `render.yaml`; secrets entered in the dashboard only |
 
 Render terminates TLS and sets `PORT`; `CHAT_HOST=0.0.0.0` is accepted only with

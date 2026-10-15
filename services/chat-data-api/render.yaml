@@ -8,7 +8,10 @@ services:
   - type: web
     name: unime-chat-data-api
     runtime: node
-    plan: starter            # always-on; the free plan sleeps and exceeds Hubi's 15 s timeout
+    # Zero-cost POC: Free only. It sleeps after 15 min idle and takes ~1 min to
+    # wake; the Hubi Worker waits up to 75 s and the UI offers a retry. Never
+    # change this to a paid plan without explicit budget approval.
+    plan: free
     region: singapore
     numInstances: 1          # process-local rate/concurrency limits are global only with one instance
     autoDeploy: false
